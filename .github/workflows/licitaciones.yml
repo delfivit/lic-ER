@@ -1,0 +1,44 @@
+name: Licitaciones Entre Ríos
+
+on:
+  schedule:
+    - cron: '0 11 * * 1-5'      # 08:00 de Argentina (UTC-3), lunes a viernes
+  workflow_dispatch:             # y también a mano, con un botón
+
+permissions:
+  contents: write                # para guardar el CSV y el estado en el repo
+
+jobs:
+  scrapear:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install --quiet requests beautifulsoup4 lxml openpyxl pypdf
+
+      - name: Correr el scraper
+        env:
+          MAIL_USUARIO:  ${{ secrets.MAIL_USUARIO }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_PARA:     ${{ secrets.MAIL_PARA }}
+        run: python -u scraper.py
+
+      - name: Guardar resultados en el repo
+        run: |
+          git config user.name  "licitaciones-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -f licitaciones.csv estado.json "Licitaciones Entre Ríos.xlsx"
+          git diff --staged --quiet || git commit -m "Licitaciones al $(date -u +%d/%m/%Y)"
+          git push
+
+      - name: Subir el Excel como archivo descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: licitaciones-excel
+          path: Licitaciones Entre Ríos.xlsx
+          retention-days: 30

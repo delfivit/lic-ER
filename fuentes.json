@@ -1,0 +1,88 @@
+{
+ "_ayuda": "activa: true/false para prender o apagar. parser: parana | minplan | iapv | enersa | wpjson | generico | navegador",
+ "fuentes": [
+  {
+   "activa": true,
+   "nombre": "Boletín Oficial de Entre Ríos",
+   "url": "https://www.entrerios.gov.ar/boletin/calendario/Boletin/",
+   "parser": "boletin",
+   "nota": "LA fuente clave: por ley publican acá todos los organismos y municipios, incluidas las comunas sin web. Única con VENTA y VALOR de pliego."
+  },
+  {
+   "activa": true,
+   "nombre": "Municipalidad de Paraná",
+   "url": "https://compras.parana.gob.ar/",
+   "parser": "parana",
+   "nota": "Cloudflare: bloquea a Google pero no a tu conexión"
+  },
+  {
+   "activa": true,
+   "nombre": "Min. Planeamiento (provincia)",
+   "url": "https://www.entrerios.gov.ar/minplan/licitaciones",
+   "parser": "minplan",
+   "nota": "DGAyC, Hidráulica, Vialidad, IAPV, Energía, OSER, UEP, CAFESG, SMPIyS"
+  },
+  {
+   "activa": true,
+   "nombre": "IAPV — Viviendas",
+   "url": "https://www.iapv.gob.ar/seccion/articulos-grupo/20/pliegos-de-licitaciones",
+   "parser": "iapv",
+   "nota": "Publica cosas que NO están en Planeamiento"
+  },
+  {
+   "activa": true,
+   "nombre": "Vialidad Entre Ríos (DPV)",
+   "url": "https://www.dpver.gov.ar/",
+   "parser": "wpjson",
+   "nota": "WordPress"
+  },
+  {
+   "activa": true,
+   "nombre": "Túnel Subfluvial",
+   "url": "https://tunelsubfluvial.gov.ar/",
+   "parser": "wpjson",
+   "nota": "WordPress"
+  },
+  {
+   "activa": true,
+   "nombre": "ENERSA",
+   "url": "https://www.enersa.com.ar/area-proveedores/",
+   "parser": "enersa",
+   "nota": "Sin fecha en el listado"
+  },
+  {
+   "activa": false,
+   "nombre": "Municipalidad de Crespo",
+   "url": "https://www.crespo.gob.ar/licitaciones",
+   "parser": "generico",
+   "nota": "APAGADA: la página quedó en 2016, sin llamados actuales"
+  },
+  {
+   "activa": true,
+   "nombre": "Municipalidad de Chajarí",
+   "url": "https://licitaciones.chajari.gob.ar/licitaciones",
+   "parser": "generico",
+   "nota": "El sitio principal lo muestra en un iframe; esta es la URL real"
+  },
+  {
+   "activa": true,
+   "nombre": "Municipalidad de Federación",
+   "url": "https://www.federacion.gob.ar/licitaciones",
+   "parser": "generico"
+  },
+  {
+   "activa": true,
+   "nombre": "Municipalidad de Diamante",
+   "url": "https://www.diamante.gob.ar/licitaciones-2026/",
+   "parser": "generico",
+   "nota": "Tiene una subpágina por año"
+  },
+  {
+   "activa": false,
+   "nombre": "Municipalidad de Oro Verde",
+   "url": "https://www.oroverde.gob.ar/",
+   "parser": "generico",
+   "nota": "APAGADA: la conexión se cuelga (930s en la prueba)"
+  }
+ ]
+}

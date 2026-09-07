@@ -1,0 +1,8 @@
+.venv/
+ultima-corrida.log
+.env
+.cache_boletin/
+*.pdf
+__pycache__/
+bol*.h
+bora.h
