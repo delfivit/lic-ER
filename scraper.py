@@ -8,7 +8,7 @@ Uso:
     ./correr.sh                # baja todo y actualiza el Excel
     ./correr.sh --solo NOMBRE  # una sola fuente (para probar)
 """
-import json, re, sys, time, unicodedata, hashlib, argparse
+import json, re, os, sys, time, unicodedata, hashlib, argparse
 from datetime import datetime, date
 from urllib.parse import quote
 from pathlib import Path
@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 BASE = Path(__file__).parent
 HOY = date.today()
 BOLETIN_DIAS = 10   # cuántos días atrás mirar del Boletín Oficial
+EN_LA_NUBE = bool(os.environ.get('GITHUB_ACTIONS'))   # ¿corriendo en GitHub?
 UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/124.0 Safari/537.36')
 # Proxies de lectura para sitios que bloquean datacenters (a Apps Script Paraná
@@ -200,9 +201,15 @@ class Red:
 
     # qué elemento hay que esperar en cada sitio antes de leer la página
     ESPERAR = {'compras.parana.gob.ar': 'a[href*="/uploads/pliegos/"]'}
+    # sitios donde el navegador tampoco sirve cuando corremos en la nube
+    SIN_SALIDA_EN_CI = ('compras.parana.gob.ar',)
 
     def _con_navegador(self, url, d, json_, motivo):
         import navegador
+        if EN_LA_NUBE and any(h in url for h in self.SIN_SALIDA_EN_CI):
+            d['error'] = ('Cloudflare no deja entrar desde la nube. Esta fuente se '
+                          'actualiza cuando corre en la Mac de Delfi.')
+            return None
         if not navegador.disponible():
             return None
         sel = next((v for k, v in self.ESPERAR.items() if k in url), None)
@@ -507,7 +514,15 @@ def main():
 
     def trabajo(f):
         fn = PARSERS.get(f['parser'], p_generico)
-        return fn(red, f['url'], f['nombre'])
+        try:
+            return fn(red, f['url'], f['nombre'])
+        finally:
+            # si este hilo abrió un navegador, lo cierra él mismo
+            try:
+                import navegador
+                navegador.cerrar()
+            except Exception:
+                pass
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         futuros = {f['nombre']: (pool.submit(trabajo, f), time.time(), f) for f in fuentes}

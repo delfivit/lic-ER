@@ -13,8 +13,12 @@ que aparecieron al correr en la nube:
 """
 import re
 
-_PW = None          # se arranca una sola vez y se reusa
-_NAVEGADOR = None
+import threading
+# OJO: la API sync de Playwright NO es thread-safe y el scraper corre las fuentes
+# en paralelo. Compartir un navegador entre hilos rompe con
+# "greenlet.error: Cannot switch to a different thread". Por eso cada hilo tiene
+# el suyo, guardado en almacenamiento local del hilo.
+_local = threading.local()
 
 UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/124.0 Safari/537.36')
@@ -27,22 +31,23 @@ def disponible():
         return False
 
 def _arrancar():
-    global _PW, _NAVEGADOR
-    if _NAVEGADOR is not None:
-        return _NAVEGADOR
+    nav = getattr(_local, 'navegador', None)
+    if nav is not None:
+        return nav
     from playwright.sync_api import sync_playwright
-    _PW = sync_playwright().start()
-    _NAVEGADOR = _PW.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage'])
-    return _NAVEGADOR
+    _local.pw = sync_playwright().start()
+    _local.navegador = _local.pw.chromium.launch(
+        args=['--no-sandbox', '--disable-dev-shm-usage'])
+    return _local.navegador
 
 def cerrar():
-    global _PW, _NAVEGADOR
+    """Cierra el navegador de ESTE hilo (cada uno cierra el suyo)."""
     try:
-        if _NAVEGADOR: _NAVEGADOR.close()
-        if _PW: _PW.stop()
+        if getattr(_local, 'navegador', None): _local.navegador.close()
+        if getattr(_local, 'pw', None): _local.pw.stop()
     except Exception:
         pass
-    _NAVEGADOR = _PW = None
+    _local.navegador = _local.pw = None
 
 def bajar(url, espera_ms=2500, timeout_ms=60000, esperar=None, diagnostico=False):
     """Devuelve el HTML ya renderizado, o None.
