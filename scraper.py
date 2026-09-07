@@ -198,11 +198,15 @@ class Red:
             d['error'] = f'{type(e).__name__}: {e}'[:120]
             return None
 
+    # qué elemento hay que esperar en cada sitio antes de leer la página
+    ESPERAR = {'compras.parana.gob.ar': 'a[href*="/uploads/pliegos/"]'}
+
     def _con_navegador(self, url, d, json_, motivo):
         import navegador
         if not navegador.disponible():
             return None
-        html = navegador.bajar(url)
+        sel = next((v for k, v in self.ESPERAR.items() if k in url), None)
+        html = navegador.bajar(url, esperar=sel, diagnostico=True)
         if html is None:
             return None
         d['http'] = f'{motivo} → navegador'

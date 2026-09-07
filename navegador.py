@@ -44,28 +44,60 @@ def cerrar():
         pass
     _NAVEGADOR = _PW = None
 
-def bajar(url, espera_ms=2500, timeout_ms=45000):
-    """Devuelve el HTML ya renderizado, o None."""
+def bajar(url, espera_ms=2500, timeout_ms=60000, esperar=None, diagnostico=False):
+    """Devuelve el HTML ya renderizado, o None.
+
+    `esperar` es un selector CSS que tiene que aparecer antes de leer la página.
+    Es más confiable que esperar un tiempo fijo: en los servidores de GitHub la
+    tabla de Paraná tarda más en armarse que en una máquina local.
+    """
     if not disponible():
         return None
     try:
         nav = _arrancar()
         ctx = nav.new_context(user_agent=UA, locale='es-AR',
                               ignore_https_errors=True,   # cadenas incompletas (ENERSA)
-                              viewport={'width': 1400, 'height': 900})
+                              viewport={'width': 1400, 'height': 900},
+                              extra_http_headers={'Accept-Language': 'es-AR,es;q=0.9'})
         pg = ctx.new_page()
         try:
             pg.goto(url, wait_until='domcontentloaded', timeout=timeout_ms)
             # si aparece el "Just a moment" de Cloudflare, le damos tiempo a resolverse
-            for _ in range(3):
-                if not re.search(r'just a moment|verificando|checking your browser',
-                                 pg.content()[:3000], re.I):
+            for _ in range(4):
+                if not re.search(r'just a moment|verificando|checking your browser|attention required',
+                                 pg.content()[:4000], re.I):
                     break
-                pg.wait_for_timeout(3500)
+                pg.wait_for_timeout(4000)
+            if esperar:
+                try:
+                    pg.wait_for_selector(esperar, timeout=25000, state='attached')
+                except Exception:
+                    if diagnostico:
+                        _informar(pg, url, esperar)
             pg.wait_for_timeout(espera_ms)
             html = pg.content()
+            if diagnostico and esperar:
+                print(f'    [navegador] {url} -> {len(html)} bytes, '
+                      f'"{esperar}": {len(pg.query_selector_all(esperar))} coincidencias')
             return html if html and len(html) > 500 else None
         finally:
             ctx.close()
-    except Exception:
+    except Exception as e:
+        if diagnostico:
+            print(f'    [navegador] falló {url}: {type(e).__name__}: {e}'[:200])
         return None
+
+def _informar(pg, url, esperar):
+    """Cuando no aparece lo que esperábamos, deja pistas en el log."""
+    try:
+        cont = pg.content()
+        print(f'    [navegador] NO apareció "{esperar}" en {url}')
+        print(f'      titulo: {pg.title()[:70]}')
+        print(f'      bytes : {len(cont)}')
+        print(f'      filas <tr>: {len(pg.query_selector_all("tr"))}')
+        if re.search(r'just a moment|attention required|cloudflare|blocked|denied', cont, re.I):
+            print('      >>> parece un bloqueo de Cloudflare')
+        texto = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', cont))[:220]
+        print(f'      texto : {texto}')
+    except Exception:
+        pass
