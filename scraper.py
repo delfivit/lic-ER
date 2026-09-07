@@ -152,6 +152,9 @@ class Red:
                 # Paraná bloquea a los datacenters (a Google le daba 403). Si estamos
                 # corriendo en la nube, reintentamos a través de un proxy de lectura.
                 if not _proxy and r.status_code in (403, 429, 503):
+                    alt = self._con_navegador(url, d, json_, f'{r.status_code}')
+                    if alt is not None:
+                        return alt
                     for i in range(1, len(PROXIES) + 1):
                         alt = self.get(url, fuente, json_, _proxy=i)
                         if alt is not None:
@@ -174,6 +177,9 @@ class Red:
             d['bytes'] = len(txt)
             if re.search(r'just a moment|cf-browser-verification|challenge-platform', txt, re.I):
                 if not _proxy:
+                    alt = self._con_navegador(url, d, json_, 'Cloudflare')
+                    if alt is not None:
+                        return alt
                     for i in range(1, len(PROXIES) + 1):
                         alt = self.get(url, fuente, json_, _proxy=i)
                         if alt is not None:
@@ -183,9 +189,34 @@ class Red:
                 return None
             return txt
         except Exception as e:
+            if not _proxy and 'SSL' in type(e).__name__.upper():
+                # ENERSA no manda el certificado intermedio: el navegador sí completa la cadena
+                alt = self._con_navegador(url, d, json_, 'SSL')
+                if alt is not None:
+                    return alt
             d['http'] = 'ERROR'
             d['error'] = f'{type(e).__name__}: {e}'[:120]
             return None
+
+    def _con_navegador(self, url, d, json_, motivo):
+        import navegador
+        if not navegador.disponible():
+            return None
+        html = navegador.bajar(url)
+        if html is None:
+            return None
+        d['http'] = f'{motivo} → navegador'
+        d['error'] = ''
+        d['bytes'] = len(html)
+        if json_:
+            m = re.search(r'<pre[^>]*>(.*?)</pre>', html, re.S)
+            crudo = m.group(1) if m else html
+            try:
+                import json as _j, html as _h
+                return _j.loads(_h.unescape(re.sub(r'<[^>]+>', '', crudo)))
+            except Exception:
+                return None
+        return html
 
 # ---------------------------------------------------------------- parsers
 ORG = {'ENERGIA':'Sec. de Energía','DGAyC':'Arquitectura y Construcciones (DGAyC)',
@@ -201,12 +232,18 @@ def p_parana(red, url, nombre):
     out = []
     for tr in soup.select('tr'):
         tds = tr.find_all('td')
-        if len(tds) < 5: continue
         a = tr.find('a', href=re.compile(r'/uploads/pliegos/'))
-        if not a: continue
-        apertura = norm(tds[2].get_text())
-        tramite  = norm(tds[3].get_text())
-        objeto   = norm(tds[4].get_text())
+        if not a or len(tds) < 4: continue
+        # OJO: la cantidad de columnas cambia según cómo se lea la página.
+        # Bajada directa: 5 tds (la 1ª es una columna oculta de ordenamiento).
+        # Con navegador: 4 tds, porque DataTables elimina esa columna al renderizar.
+        # Por eso ubicamos la celda del PDF y contamos a partir de ella.
+        i_pdf = next((i for i, td in enumerate(tds) if td.find('a', href=re.compile(r'/uploads/pliegos/'))), None)
+        if i_pdf is None or i_pdf + 3 >= len(tds) + 0:
+            if i_pdf is None or len(tds) < i_pdf + 4: continue
+        apertura = norm(tds[i_pdf + 1].get_text())
+        tramite  = norm(tds[i_pdf + 2].get_text())
+        objeto   = norm(tds[i_pdf + 3].get_text())
         partes = tramite.split(' - ')
         pdf = origin + a['href']
         out.append(dict(fuente=nombre, organismo='Municipalidad de Paraná',
@@ -551,6 +588,11 @@ def main():
     if alertas:
         print('\n  FUENTES CON PROBLEMAS:')
         for a in alertas: print(f'   ! {a[:100]}')
+
+    try:
+        import navegador; navegador.cerrar()
+    except Exception:
+        pass
 
     print(f'\n  Excel: {xlsx}')
     try:

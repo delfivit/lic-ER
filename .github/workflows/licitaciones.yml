@@ -19,7 +19,12 @@ jobs:
           python-version: '3.12'
 
       - name: Instalar dependencias
-        run: pip install --quiet requests beautifulsoup4 lxml openpyxl pypdf
+        run: pip install --quiet requests beautifulsoup4 lxml openpyxl pypdf playwright
+
+      - name: Instalar el navegador
+        # Hace falta para dos sitios: Paraná devuelve 403 a los datacenters y
+        # ENERSA no manda su certificado intermedio. Un navegador real resuelve ambos.
+        run: playwright install --with-deps chromium
 
       - name: Correr el scraper
         env:
