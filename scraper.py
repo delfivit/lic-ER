@@ -484,6 +484,29 @@ def escribir_excel(filas, ruta):
     wb.save(ruta)
     return len(filas)
 
+def leer_csv_previo(ruta=None):
+    """Lee el CSV de la corrida anterior. Sirve para no perder las licitaciones
+    de una fuente que hoy falló (típicamente Paraná cuando corre en la nube)."""
+    import csv
+    ruta = ruta or (BASE / 'licitaciones.csv')
+    if not ruta.exists():
+        return []
+    try:
+        with open(ruta, newline='', encoding='utf-8') as f:
+            lector = csv.DictReader(f)
+            previas = []
+            for fila in lector:
+                d = {c: (fila.get(c) or '') for c in COLS if c in fila}
+                # el CSV no guarda el ID (es interno): lo recalculamos igual que siempre
+                if not d.get('ID'):
+                    base = d.get('Link') or f"{d.get('Fuente','')}|{d.get('N°','')}|{d.get('Objeto','')}"
+                    d['ID'] = uid_hash(base)
+                previas.append(d)
+            return previas
+    except Exception as e:
+        print(f'  (no pude leer el CSV anterior: {e})')
+        return []
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -577,6 +600,21 @@ def main():
         if _id not in vistos:
             nuevas.append(fila)
             vistos[_id] = HOY.strftime('%d/%m/%Y')
+
+    # Si una fuente falló, NO tiramos lo que había traído la última vez.
+    # Es lo que hace posible el esquema mixto: cuando corre en la nube Paraná
+    # falla (Cloudflare), pero sus licitaciones —que subió la Mac— se mantienen.
+    fallaron = {n for n, d in red.log.items() if d.get('error')}
+    if fallaron:
+        previas = leer_csv_previo()
+        rescatadas = [f for f in previas
+                      if f.get('Fuente') in fallaron
+                      and f.get('ID') not in {x['ID'] for x in filas}
+                      and f.get('Estado') != 'Vencida']
+        if rescatadas:
+            filas += rescatadas
+            print(f'\n  Se conservaron {len(rescatadas)} licitación(es) de '
+                  f'{len(fallaron)} fuente(s) que hoy fallaron: {", ".join(sorted(fallaron))[:70]}')
 
     xlsx = BASE / 'Licitaciones-Entre-Rios.xlsx'
     escribir_excel(filas, xlsx)

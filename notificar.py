@@ -29,7 +29,7 @@ def cargar_env():
 def escribir_csv(filas, cols, ruta=None):
     """La Google Sheet lo lee con =IMPORTDATA(...) — sin credenciales de Google."""
     ruta = ruta or (BASE / 'licitaciones.csv')
-    visibles = [c for c in cols if c != 'ID']
+    visibles = list(cols)   # incluye el ID: lo necesita el rescate de fuentes caídas
     with open(ruta, 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         w.writerow(visibles)
