@@ -63,11 +63,11 @@ def bajar(url, espera_ms=2500, timeout_ms=60000, esperar=None, diagnostico=False
         try:
             pg.goto(url, wait_until='domcontentloaded', timeout=timeout_ms)
             # si aparece el "Just a moment" de Cloudflare, le damos tiempo a resolverse
-            for _ in range(4):
-                if not re.search(r'just a moment|verificando|checking your browser|attention required',
+            for _ in range(8):
+                if not re.search(r'just a moment|un momento|aguarde|verificando|checking your browser|attention required|espere',
                                  pg.content()[:4000], re.I):
                     break
-                pg.wait_for_timeout(4000)
+                pg.wait_for_timeout(3000)
             if esperar:
                 try:
                     pg.wait_for_selector(esperar, timeout=25000, state='attached')
