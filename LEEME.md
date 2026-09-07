@@ -16,7 +16,7 @@ Busca licitaciones de obra pública en Entre Ríos y se queda solo con tus rubro
 
 | Archivo | Para qué |
 |---|---|
-| `Licitaciones Entre Ríos.xlsx` | El resultado, ordenado por estado y con filtros |
+| `Licitaciones-Entre-Rios.xlsx` | El resultado, ordenado por estado y con filtros |
 | `licitaciones.csv` | Para que la Google Sheet lo lea con `=IMPORTDATA(...)` |
 | `fuentes.json` | Prender/apagar fuentes y agregar nuevas. **Este es el que vas a tocar** |
 | `estado.json` | Qué licitaciones ya viste (evita avisarte dos veces). No lo borres |

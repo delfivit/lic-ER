@@ -522,7 +522,7 @@ def main():
             nuevas.append(fila)
             vistos[_id] = HOY.strftime('%d/%m/%Y')
 
-    xlsx = BASE / 'Licitaciones Entre Ríos.xlsx'
+    xlsx = BASE / 'Licitaciones-Entre-Rios.xlsx'
     escribir_excel(filas, xlsx)
     # CSV para que la Google Sheet lo lea con =IMPORTDATA (sin credenciales)
     try:
