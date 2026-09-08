@@ -83,6 +83,55 @@
    "url": "https://www.oroverde.gob.ar/",
    "parser": "generico",
    "nota": "APAGADA: la conexión se cuelga (930s en la prueba)"
+  },
+  {
+   "activa": false,
+   "nombre": "Municipalidad de Concordia",
+   "url": "https://compras.concordia.gob.ar/",
+   "parser": "generico",
+   "nota": "NO SE PUEDE: la web carga por JavaScript. Hay que entrar a mano."
+  },
+  {
+   "activa": false,
+   "nombre": "Portal de Transparencia (provincia)",
+   "url": "https://portal.entrerios.gov.ar/ps/transparencia/licitaciones",
+   "parser": "generico",
+   "nota": "NO SE PUEDE: aplicación JavaScript. Igual lo que publica llega por el Boletín."
+  },
+  {
+   "activa": false,
+   "nombre": "Municipalidad de Victoria",
+   "url": "https://www.victoria.gob.ar/",
+   "parser": "generico",
+   "nota": "No tiene sección de licitaciones propia (verificado 06/09/2026)."
+  },
+  {
+   "activa": false,
+   "nombre": "Municipalidad de La Paz",
+   "url": "https://www.lapaz.gob.ar/",
+   "parser": "generico",
+   "nota": "No tiene sección de licitaciones propia (verificado 06/09/2026)."
+  },
+  {
+   "activa": false,
+   "nombre": "Municipalidad de Gualeguaychú",
+   "url": "https://gualeguaychu.gov.ar/tramites/compras-y-licitaciones",
+   "parser": "generico",
+   "nota": "Redirige a un portal de datos abiertos que no responde. Llega por el Boletín."
+  },
+  {
+   "activa": false,
+   "nombre": "CGE — Consejo General de Educación",
+   "url": "https://cge.entrerios.gov.ar/",
+   "parser": "generico",
+   "nota": "Publica concursos docentes, no obra. Las obras escolares llegan por DGAyC."
+  },
+  {
+   "activa": false,
+   "nombre": "IOSPER / Obra Social de ER",
+   "url": "https://www.iosper.gov.ar/",
+   "parser": "generico",
+   "nota": "Es la obra social (prótesis, insumos médicos). No es tu rubro. OJO: Obras Sanitarias (OSER) sí llega por Min. Planeamiento."
   }
  ]
 }

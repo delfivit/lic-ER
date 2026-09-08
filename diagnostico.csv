@@ -1,0 +1,20 @@
+Fuente,URL,Parser,Estado,Respuesta,Encontradas,De tu rubro,Corridas sin traer nada,Detalle,Última corrida
+Boletín Oficial de Entre Ríos,https://www.entrerios.gov.ar/boletin/calendario/Boletin/,boletin,OK,16 PDFs,64,30,0,,08/09/2026 20:39
+Municipalidad de Paraná,https://compras.parana.gob.ar/,parana,OK,200,7,2,0,,08/09/2026 20:39
+Min. Planeamiento (provincia),https://www.entrerios.gov.ar/minplan/licitaciones,minplan,OK,200,532,398,0,,08/09/2026 20:39
+IAPV — Viviendas,https://www.iapv.gob.ar/seccion/articulos-grupo/20/pliegos-de-licitaciones,iapv,OK,200,10,10,0,,08/09/2026 20:39
+Vialidad Entre Ríos (DPV),https://www.dpver.gov.ar/,wpjson,OK,200,10,5,0,,08/09/2026 20:39
+Túnel Subfluvial,https://tunelsubfluvial.gov.ar/,wpjson,OK,200,22,3,0,,08/09/2026 20:39
+ENERSA,https://www.enersa.com.ar/area-proveedores/,enersa,OK,200,6,0,0,,08/09/2026 20:39
+Municipalidad de Chajarí,https://licitaciones.chajari.gob.ar/licitaciones,generico,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),08/09/2026 20:39
+Municipalidad de Federación,https://www.federacion.gob.ar/licitaciones,generico,OK,200,4,0,0,,08/09/2026 20:39
+Municipalidad de Diamante,https://www.diamante.gob.ar/licitaciones-2026/,generico,OK,200,1,0,0,,08/09/2026 20:39
+Municipalidad de Crespo,https://www.crespo.gob.ar/licitaciones,generico,Apagada,,,,,"APAGADA: la página quedó en 2016, sin llamados actuales",08/09/2026 20:39
+Municipalidad de Oro Verde,https://www.oroverde.gob.ar/,generico,Apagada,,,,,APAGADA: la conexión se cuelga (930s en la prueba),08/09/2026 20:39
+Municipalidad de Concordia,https://compras.concordia.gob.ar/,generico,Apagada,,,,,NO SE PUEDE: la web carga por JavaScript. Hay que entrar a mano.,08/09/2026 20:39
+Portal de Transparencia (provincia),https://portal.entrerios.gov.ar/ps/transparencia/licitaciones,generico,Apagada,,,,,NO SE PUEDE: aplicación JavaScript. Igual lo que publica llega por el Boletín.,08/09/2026 20:39
+Municipalidad de Victoria,https://www.victoria.gob.ar/,generico,Apagada,,,,,No tiene sección de licitaciones propia (verificado 06/09/2026).,08/09/2026 20:39
+Municipalidad de La Paz,https://www.lapaz.gob.ar/,generico,Apagada,,,,,No tiene sección de licitaciones propia (verificado 06/09/2026).,08/09/2026 20:39
+Municipalidad de Gualeguaychú,https://gualeguaychu.gov.ar/tramites/compras-y-licitaciones,generico,Apagada,,,,,Redirige a un portal de datos abiertos que no responde. Llega por el Boletín.,08/09/2026 20:39
+CGE — Consejo General de Educación,https://cge.entrerios.gov.ar/,generico,Apagada,,,,,"Publica concursos docentes, no obra. Las obras escolares llegan por DGAyC.",08/09/2026 20:39
+IOSPER / Obra Social de ER,https://www.iosper.gov.ar/,generico,Apagada,,,,,"Es la obra social (prótesis, insumos médicos). No es tu rubro. OJO: Obras Sanitarias (OSER) sí llega por Min. Planeamiento.",08/09/2026 20:39

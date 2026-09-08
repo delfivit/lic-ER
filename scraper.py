@@ -19,6 +19,39 @@ BASE = Path(__file__).parent
 HOY = date.today()
 BOLETIN_DIAS = 25   # cuántos días atrás mirar del Boletín Oficial
 EN_LA_NUBE = bool(os.environ.get('GITHUB_ACTIONS'))   # ¿corriendo en GitHub?
+TODAS_LAS_FUENTES = []
+# La hoja "Fuentes" de la planilla de Delfina. Lo que agregue ahí se scrapea
+# al día siguiente sin tocar código. Si no se puede leer, se usa fuentes.json.
+PLANILLA_FUENTES = ('https://docs.google.com/spreadsheets/d/'
+                    '1gFFecC4oR189HbYa04sAzm7Q6tTN3UyRvrXiM_8CeFc/gviz/tq?tqx=out:csv&sheet=Fuentes')
+
+
+def fuentes_de_la_planilla():
+    """Lee las fuentes que el equipo cargó en la planilla. Devuelve [] si no se
+    puede (sin internet, planilla movida, hoja renombrada): en ese caso se sigue
+    con las del archivo, así una planilla rota nunca deja al scraper sin fuentes."""
+    import csv, io
+    try:
+        r = requests.get(PLANILLA_FUENTES, headers=HEADERS, timeout=(10, 25))
+        if r.status_code != 200:
+            return []
+        r.encoding = 'utf-8'
+        filas = list(csv.DictReader(io.StringIO(r.text)))
+    except Exception as e:
+        print(f'  (no pude leer las fuentes de la planilla: {type(e).__name__})')
+        return []
+    out = []
+    for f in filas:
+        cols = {(k or '').strip().lower(): (v or '').strip() for k, v in f.items()}
+        url = cols.get('url', '')
+        nombre = cols.get('nombre', '')
+        if not url.startswith('http') or not nombre:
+            continue
+        activa = cols.get('activa', '').upper() in ('SI', 'SÍ', 'X', 'TRUE', 'VERDADERO', '1', '✓')
+        out.append({'activa': activa, 'nombre': nombre, 'url': url,
+                    'parser': (cols.get('parser') or 'generico').lower(),
+                    'nota': cols.get('notas', '')})
+    return out
 UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/124.0 Safari/537.36')
 # Proxies de lectura para sitios que bloquean datacenters (a Apps Script Paraná
@@ -500,6 +533,54 @@ def escribir_excel(filas, ruta):
     wb.save(ruta)
     return len(filas)
 
+DIAG_COLS = ['Fuente','URL','Parser','Estado','Respuesta','Encontradas','De tu rubro',
+             'Corridas sin traer nada','Detalle','Última corrida']
+
+def escribir_diagnostico(red, fuentes, estado_previo):
+    """Deja en diagnostico.csv cómo le fue a cada fuente. La planilla lo muestra
+    para que se vea de un vistazo si alguna dejó de andar y haya que entrar a
+    mano — así no se pierde ninguna licitación."""
+    import csv
+    ceros = estado_previo.get('ceros', {})
+    ahora = datetime.now().strftime('%d/%m/%Y %H:%M')
+    filas, alertas = [], []
+    for f in fuentes:
+        n = f['nombre']
+        d = red.log.get(n, {})
+        crudos = d.get('crudos', 0)
+        error = d.get('error', '')
+        sin_nada = (ceros.get(n, 0) + 1) if crudos == 0 else 0
+        ceros[n] = sin_nada
+        if error:
+            estado = 'ERROR'
+        elif crudos == 0:
+            estado = 'Sin resultados'
+        else:
+            estado = 'OK'
+        motivo = error or ('No trajo nada hace %d corrida(s)' % sin_nada if sin_nada >= 3 else '')
+        filas.append({
+            'Fuente': n, 'URL': f['url'], 'Parser': f['parser'], 'Estado': estado,
+            'Respuesta': str(d.get('http', '')), 'Encontradas': crudos,
+            'De tu rubro': d.get('relev', 0), 'Corridas sin traer nada': sin_nada,
+            'Detalle': motivo, 'Última corrida': ahora,
+        })
+        if estado == 'ERROR' or sin_nada >= 3:
+            alertas.append(f"{n}: {motivo or 'no trajo resultados'} — entrá a {f['url']}")
+    # las apagadas también se listan, para que se vean en la planilla
+    for f in TODAS_LAS_FUENTES:
+        if f.get('activa') or any(x['Fuente'] == f['nombre'] for x in filas):
+            continue
+        filas.append({'Fuente': f['nombre'], 'URL': f['url'], 'Parser': f.get('parser', ''),
+                      'Estado': 'Apagada', 'Respuesta': '', 'Encontradas': '', 'De tu rubro': '',
+                      'Corridas sin traer nada': '', 'Detalle': f.get('nota', ''), 'Última corrida': ahora})
+    with open(BASE / 'diagnostico.csv', 'w', newline='', encoding='utf-8') as fh:
+        w = csv.DictWriter(fh, fieldnames=DIAG_COLS)
+        w.writeheader()
+        w.writerows(filas)
+    estado_previo['ceros'] = ceros
+    return alertas
+
+
 def leer_csv_previo(ruta=None):
     """Lee el CSV de la corrida anterior. Sirve para no perder las licitaciones
     de una fuente que hoy falló (típicamente Paraná cuando corre en la nube)."""
@@ -532,7 +613,23 @@ def main():
     args = ap.parse_args()
 
     cfg = json.loads((BASE / 'fuentes.json').read_text(encoding='utf-8'))
-    fuentes = [f for f in cfg['fuentes'] if f.get('activa')]
+    todas = list(cfg['fuentes'])
+    # lo que el equipo cargó en la planilla manda sobre el archivo
+    de_planilla = fuentes_de_la_planilla()
+    if de_planilla:
+        por_url = {f['url'].rstrip('/'): i for i, f in enumerate(todas)}
+        sumadas = 0
+        for f in de_planilla:
+            k = f['url'].rstrip('/')
+            if k in por_url:
+                todas[por_url[k]].update(f)
+            else:
+                todas.append(f); sumadas += 1
+        print(f'  ({len(de_planilla)} fuentes leídas de la planilla'
+              + (f', {sumadas} nueva(s)' if sumadas else '') + ')')
+    global TODAS_LAS_FUENTES
+    TODAS_LAS_FUENTES = todas
+    fuentes = [f for f in todas if f.get('activa')]
     if args.solo:
         fuentes = [f for f in fuentes if args.solo.lower() in f['nombre'].lower()]
 
@@ -646,7 +743,6 @@ def main():
         print(f'  (no se pudo escribir el CSV: {e})')
     estado['vistos'] = vistos
     estado['ultima_corrida'] = datetime.now().isoformat(timespec='seconds')
-    est_path.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding='utf-8')
 
     vig = [f for f in filas if f['Estado'] == 'Vigente']
     rev = [f for f in filas if f['Estado'] == 'Revisar fecha']
@@ -660,8 +756,11 @@ def main():
             nuevo = ' *NUEVA*' if f in nuevas else ''
             print(f'   · [{f["Rubro"]:<15}] {f["Organismo"][:30]:<32} {f["N°"]:<12} {f["Objeto"][:52]}')
             print(f'       apertura: {f["Apertura"][:46]:<48} venta: {f["Venta hasta"]}{nuevo}')
-    # alertas de fuentes caídas
-    alertas = [f'{n}: {d["error"]}' for n, d in red.log.items() if d.get('error')]
+    # estado de cada fuente -> diagnostico.csv + alertas para el mail
+    alertas = escribir_diagnostico(red, fuentes, estado)
+    # recién ahora se guarda: escribir_diagnostico actualiza el contador de
+    # corridas sin resultados, que es lo que dispara el aviso a los 3 días
+    est_path.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding='utf-8')
     if alertas:
         print('\n  FUENTES CON PROBLEMAS:')
         for a in alertas: print(f'   ! {a[:100]}')

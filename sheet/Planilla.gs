@@ -20,6 +20,8 @@ var CFG = {
   // actualizado (verificado). La API entrega siempre la última versión.
   CSV: 'https://api.github.com/repos/delfivit/lic-ER/contents/licitaciones.csv',
   CSV_RESPALDO: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/licitaciones.csv',
+  DIAG: 'https://api.github.com/repos/delfivit/lic-ER/contents/diagnostico.csv',
+  FUENTES: 'Fuentes',
   HOJA: 'Licitaciones',
   RESUMEN: 'Resumen',
   HORA: 9                      // hora a la que se actualiza sola (GitHub corre 8:00)
@@ -102,10 +104,14 @@ function actualizar() {
     hoja.getRange(2, 1, salida.length, COLS.length).setValues(salida);
   }
   pintar_(hoja, salida.length);
-  armarResumen_(ss, salida);
+  var estadoFuentes = actualizarFuentes_(ss);
+  armarResumen_(ss, salida, estadoFuentes);
 
-  ss.toast(salida.length + ' licitaciones · ' + conSeguimiento + ' con seguimiento tuyo',
-           'Actualizado', 8);
+  var aviso = salida.length + ' licitaciones · ' + conSeguimiento + ' con seguimiento tuyo';
+  if (estadoFuentes.conError) {
+    aviso += '  ⚠️ ' + estadoFuentes.conError + ' fuente(s) con problemas: mirá la hoja Fuentes';
+  }
+  ss.toast(aviso, 'Actualizado', 12);
   return salida.length;
 }
 
@@ -257,7 +263,7 @@ function aFecha_(v) {
 }
 
 // ====================== RESUMEN =======================================
-function armarResumen_(ss, filas) {
+function armarResumen_(ss, filas, estadoFuentes) {
   var sh = ss.getSheetByName(CFG.RESUMEN) || ss.insertSheet(CFG.RESUMEN, 1);
   sh.clear();
 
@@ -299,6 +305,15 @@ function armarResumen_(ss, filas) {
   }
 
   titulo('LICITACIONES ENTRE RÍOS — Granss SRL');
+  if (estadoFuentes && estadoFuentes.conError) {
+    sh.getRange(fila - 1, 1, 1, 6).merge()
+      .setValue('⚠️  ' + estadoFuentes.conError + ' fuente(s) NO se pudieron revisar. ' +
+                'Mirá la hoja "Fuentes" (filas rojas o naranjas) y entrá a esas webs a mano ' +
+                'para no perderte licitaciones.')
+      .setBackground('#F4CCCC').setFontWeight('bold').setWrap(true);
+    sh.setRowHeight(fila - 1, 34);
+    fila += 2;
+  }
   sh.getRange(fila - 1, 1).setValue(
     'Actualizado: ' + Utilities.formatDate(new Date(), 'America/Argentina/Cordoba', 'dd/MM/yyyy HH:mm') +
     '   ·   Se actualiza solo todos los días').setFontColor('#666666');
@@ -380,6 +395,137 @@ function armarResumen_(ss, filas) {
   sh.setFrozenRows(3);
 }
 
+// ====================== HOJA FUENTES ==================================
+// Columnas que edita el equipo (verde) y columnas que llena el sistema (azul).
+var F_MIAS = ['Activa','Nombre','URL','Parser','Notas'];
+var F_AUTO = ['Estado','Encontradas','De tu rubro','Corridas sin traer nada','Detalle','Última corrida'];
+var F_COLS = F_MIAS.concat(F_AUTO);
+var PARSERS = ['boletin','wpjson','generico','parana','minplan','iapv','enersa'];
+
+function actualizarFuentes_(ss) {
+  var diag = bajarDiagnostico_();          // lo que reportó la última corrida
+  var sh = ss.getSheetByName(CFG.FUENTES);
+  var nueva = !sh;
+  if (!sh) sh = ss.insertSheet(CFG.FUENTES);
+
+  // lo que ya está cargado en la hoja (para no pisar lo que escribió el equipo)
+  var previas = [], ultima = sh.getLastRow();
+  if (!nueva && ultima > 1) {
+    var v = sh.getRange(2, 1, ultima - 1, F_COLS.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      var url = (v[i][F_COLS.indexOf('URL')] || '').toString().trim();
+      if (url) previas.push({
+        activa: v[i][F_COLS.indexOf('Activa')], nombre: v[i][F_COLS.indexOf('Nombre')],
+        url: url, parser: v[i][F_COLS.indexOf('Parser')], notas: v[i][F_COLS.indexOf('Notas')]
+      });
+    }
+  }
+
+  // unir: manda lo que está en la hoja; el diagnóstico aporta el estado
+  var porUrl = {};
+  previas.forEach(function (p) { porUrl[norUrl_(p.url)] = p; });
+  var filas = [], vistas = {};
+
+  diag.forEach(function (d) {
+    var k = norUrl_(d['URL']);
+    var p = porUrl[k];
+    vistas[k] = true;
+    filas.push([
+      p ? p.activa : (d['Estado'] === 'Apagada' ? 'NO' : 'SI'),
+      p && p.nombre ? p.nombre : d['Fuente'],
+      d['URL'],
+      p && p.parser ? p.parser : d['Parser'],
+      p && p.notas ? p.notas : d['Detalle'],
+      d['Estado'], d['Encontradas'], d['De tu rubro'],
+      d['Corridas sin traer nada'], d['Detalle'], d['Última corrida']
+    ]);
+  });
+  // las que el equipo agregó y todavía no se buscaron
+  previas.forEach(function (p) {
+    if (vistas[norUrl_(p.url)]) return;
+    filas.push([p.activa, p.nombre, p.url, p.parser, p.notas,
+                'Se busca mañana', '', '', '', 'Agregada por el equipo — todavía no se probó', '']);
+  });
+
+  // Limpiar TODO antes de reescribir. Si sólo se borra el bloque de datos, el
+  // texto de ayuda del pie queda pegado más abajo y se va duplicando en cada
+  // corrida. Lo que escribió el equipo ya está a salvo en `previas`.
+  sh.clear();
+  sh.getRange(1, 1, 1, F_COLS.length).setValues([F_COLS]);
+  for (var c = 0; c < F_COLS.length; c++) {
+    sh.getRange(1, c + 1).setFontWeight('bold').setFontColor('#ffffff')
+      .setBackground(F_MIAS.indexOf(F_COLS[c]) >= 0 ? '#1E7B4F' : '#1F3A5F').setWrap(true);
+  }
+  var conError = 0;
+  if (filas.length) {
+    sh.getRange(2, 1, filas.length, F_COLS.length).setValues(filas)
+      .setFontColor('#000000').setBackground('#ffffff').setVerticalAlignment('top').setWrap(true);
+    var fondos = [];
+    for (var i = 0; i < filas.length; i++) {
+      var est = (filas[i][F_COLS.indexOf('Estado')] || '').toString();
+      var sinNada = Number(filas[i][F_COLS.indexOf('Corridas sin traer nada')]) || 0;
+      var color = '#ffffff';
+      if (est === 'ERROR') { color = '#F4CCCC'; conError++; }
+      else if (sinNada >= 3) { color = '#FCE4D6'; conError++; }
+      else if (est === 'Apagada') color = '#EFEFEF';
+      else if (est === 'Se busca mañana') color = '#D9E1F2';
+      else if (est === 'OK') color = '#D9EAD3';
+      fondos.push(new Array(F_COLS.length).fill(color));
+    }
+    sh.getRange(2, 1, filas.length, F_COLS.length).setBackgrounds(fondos);
+
+    var vSi = SpreadsheetApp.newDataValidation().requireValueInList(['SI','NO'], true)
+              .setAllowInvalid(false).build();
+    sh.getRange(2, 1, Math.max(filas.length, 60), 1).setDataValidation(vSi);
+    var vP = SpreadsheetApp.newDataValidation().requireValueInList(PARSERS, true)
+             .setAllowInvalid(true)
+             .setHelpText('wpjson = sitios WordPress (probá este primero) · generico = cualquier otro').build();
+    sh.getRange(2, 4, Math.max(filas.length, 60), 1).setDataValidation(vP);
+  }
+
+  // instrucciones al pie
+  var f = filas.length + 3;
+  sh.getRange(f, 1, 1, 6).merge().setValue('CÓMO AGREGAR UN SITIO NUEVO')
+    .setFontWeight('bold').setBackground('#1E7B4F').setFontColor('#ffffff');
+  [ '1) Escribí una fila nueva abajo de todo: Activa = SI, un Nombre, la URL y el Parser.',
+    '2) Parser: probá "wpjson" primero (sirve en cualquier sitio hecho con WordPress).',
+    '   Si no trae nada, cambialo a "generico". Los demás son a medida de cada sitio.',
+    '3) Mañana el sistema la busca sola y te completa las columnas azules.',
+    '',
+    'COLORES: verde = anduvo bien · rojo = dio error · naranja = hace 3 corridas no trae nada',
+    'gris = apagada · celeste = agregada por ustedes, todavía sin probar',
+    '',
+    'Si una fuente queda en rojo o naranja, entrá a esa web a mano hasta que se arregle.'
+  ].forEach(function (t, i) {
+    sh.getRange(f + 1 + i, 1, 1, 8).merge().setValue(t).setFontColor(i >= 5 ? '#666666' : '#000000');
+  });
+
+  var anchos = [60, 240, 330, 95, 260, 120, 95, 95, 110, 300, 120];
+  for (var c = 0; c < anchos.length; c++) sh.setColumnWidth(c + 1, anchos[c]);
+  sh.setFrozenRows(1);
+  return { total: filas.length, conError: conError };
+}
+
+function norUrl_(u) {
+  return (u || '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '').trim();
+}
+
+function bajarDiagnostico_() {
+  var t = pedir_(CFG.DIAG, { 'Accept': 'application/vnd.github.raw' });
+  if (!t) return [];
+  try {
+    var tabla = Utilities.parseCsv(t);
+    if (tabla.length < 2) return [];
+    var cab = tabla[0], out = [];
+    for (var i = 1; i < tabla.length; i++) {
+      var o = {};
+      for (var c = 0; c < cab.length; c++) o[cab[c]] = tabla[i][c];
+      out.push(o);
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
 // ====================== ORDENAR LA PLANILLA ===========================
 /**
  * Borra las hojas viejas que quedaron de versiones anteriores.
@@ -387,7 +533,7 @@ function armarResumen_(ss, filas) {
  */
 function limpiarHojasViejas() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var quedan = [CFG.HOJA, CFG.RESUMEN, 'Mails'];
+  var quedan = [CFG.HOJA, CFG.RESUMEN, CFG.FUENTES, 'Mails'];
   var aBorrar = ss.getSheets().filter(function (h) { return quedan.indexOf(h.getName()) < 0; });
   if (!aBorrar.length) { ss.toast('No hay hojas viejas para borrar.', 'Limpieza', 6); return; }
 
@@ -414,9 +560,18 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
+function irAFuentes() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(CFG.FUENTES);
+  if (!sh) { actualizar(); sh = ss.getSheetByName(CFG.FUENTES); }
+  if (sh) { sh.activate(); ss.toast('Verde = anduvo · Rojo = error · Naranja = hace días no trae nada', 'Fuentes', 10); }
+}
+
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('🏗️ Licitaciones')
     .addItem('Actualizar ahora', 'actualizar')
+    .addSeparator()
+    .addItem('Revisar estado de las fuentes', 'irAFuentes')
     .addSeparator()
     .addItem('Borrar hojas viejas', 'limpiarHojasViejas')
     .addItem('Instalar / reinstalar automático', 'instalarTodo')
