@@ -118,13 +118,31 @@ def parsear(texto, fecha_bol):
             if not lineas: continue
 
             mid = ID_AVISO.search(bloque)
-            # organismo y localidad: las líneas en MAYÚSCULAS antes del tipo
+            # Organismo y localidad: las líneas en MAYÚSCULAS antes del tipo.
+            # OJO: el título de la obra también viene en mayúsculas y se colaba
+            # como organismo ("CUBIERTA DE TECHOS, REPARACION DE MAMPOSTERIAS").
+            # Sólo aceptamos nombres de organismo o localidades cortas.
+            ES_ORGANISMO = re.compile(
+                r'^\s*(municipalidad|municipio|comuna|gobierno|secretar|direcci[oó]n|'
+                r'instituto|ente|comisi[oó]n|consejo|ministerio|junta|tribunal|'
+                r'universidad|hospital|caja|banco|empresa|administraci[oó]n|'
+                r'unidad|departamento ejecutivo|honorable)', re.I)
+            ES_OBRA = re.compile(
+                r'(construcci|refacci|remodelaci|ampliaci|reparaci|provisi|adquisici|'
+                r'cubierta|mamposter|pavimento|impermeabiliza|pisos|techos|viviendas|'
+                r'apertura|objeto|licitaci)', re.I)
             enc = []
             for l in lineas[:7]:
                 if RE_TIPO_NUM.match(l): break
+                l = l.strip(' .-—–')
                 letras = re.sub(r'[^A-Za-zÁÉÍÓÚÑáéíóúñ]', '', l)
-                if letras and letras == letras.upper() and len(letras) > 2:
-                    enc.append(l.strip(' .-'))
+                if not letras or letras != letras.upper() or len(letras) < 3:
+                    continue
+                if ES_ORGANISMO.match(l):
+                    enc.append(l[:80]); continue
+                # si no arranca como organismo, sólo vale si es corta y no habla de obra
+                if len(l) <= 32 and not ES_OBRA.search(l):
+                    enc.append(l)
             organismo = ' — '.join(dict.fromkeys(enc[-2:])) if enc else ''
             localidad = enc[0] if enc else ''
 
