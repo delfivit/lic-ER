@@ -148,6 +148,14 @@ def parsear(texto, fecha_bol):
             if not campos['objeto']:
                 continue
 
+            # si el campo APERTURA no trae fecha, buscarla en el resto del aviso
+            if campos['apertura'] and not re.search(r'\d{1,2}\s*[/\-.]\s*\d{1,2}|\d{1,2}\s+de\s+\w+',
+                                                    campos['apertura'], re.I):
+                m2 = re.search(r'apertura[^.;]{0,120}?((?:\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4})'
+                               r'|(?:\d{1,2}\s+de\s+[a-zA-Zá-úÁ-Ú]+\s+de[l]?\s+(?:a[ñn]o\s+)?\d{4}))',
+                               bloque, re.I | re.S)
+                if m2: campos['apertura'] = limpiar(m2.group(0), 160)
+
             out.append(dict(
                 organismo=organismo or localidad or 'Boletín Oficial',
                 localidad=localidad, tipo=tipo, numero=numero,

@@ -49,7 +49,9 @@ def parse_fecha(s):
         if a < 100: a += 2000
         try: return date(a, mes, d)
         except ValueError: return None
-    m = re.search(r'(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})', sin_acentos(s.lower()))
+    # "11 de octubre de 2026", "24 DE SEPTIEMBRE DEL AÑO 2026", "5 de mayo 2026"
+    m = re.search(r'(\d{1,2})\s+de\s+([a-z]+)\s+(?:de[l]?\s+)?(?:a[nñ]o\s+)?(\d{4})',
+                  sin_acentos(s.lower()))
     if m and m.group(2) in MESES:
         try: return date(int(m.group(3)), MESES[m.group(2)], int(m.group(1)))
         except ValueError: return None
@@ -61,6 +63,16 @@ def estado_de(f):
 
 def uid_hash(s):
     return 'id-' + hashlib.md5(sin_acentos(s.lower()).encode()).hexdigest()[:16]
+
+def limpiar_apertura(txt):
+    """El texto de apertura viene con arrastres del boletín
+    ('DE OFERTAS: el día 30 de Septiembre...'). Lo dejamos legible."""
+    t = norm(txt)
+    t = re.sub(r'^(?:DE\s+)?(?:OFERTAS?|SOBRES?|PROPUESTAS?)\s*:?\s*', '', t, flags=re.I)
+    t = re.sub(r'^(?:el\s+)?d[ií]a\s+', '', t, flags=re.I)
+    t = re.sub(r'\s*ID:\s*\d+.*$', '', t)              # cola del aviso del boletín
+    t = re.sub(r'\s*-\s*SI ES DECRETADO INHABIL.*$', '', t, flags=re.I)
+    return t[:150].strip(' .-–—')
 
 # ---------------------------------------------------------------- clasificador
 RUIDO = ['servicio de limpieza','corte de pasto','desmalezamiento','desmalezado','vigilancia',
@@ -108,7 +120,7 @@ def clasificar(texto):
 VERBO = re.compile(r'(venta|vender|vende|adquisicion|adquirir|adquieren|retiro|retirar|'
                    r'retirarse|retiran|compra|comprar|expenden|expendio|entrega)')
 F_NUM = re.compile(r'(\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4})')
-F_TXT = re.compile(r'(\d{1,2}\s+de\s+[a-z]+\s+de\s+\d{4})')
+F_TXT = re.compile(r'(\d{1,2}\s+de\s+[a-z]+\s+(?:de[l]?\s+)?(?:a[nñ]o\s+)?\d{4})')
 
 def venta_pliego(texto):
     """Busca por ventana alrededor de 'pliego'. Lineal: no puede colgarse."""
@@ -123,11 +135,14 @@ def venta_pliego(texto):
         ini = max(0, pos - 150)
         ctx = plano[ini:pos + 150]
         if not VERBO.search(ctx): continue
-        ih = ctx.find('hasta')
+        ih = ctx.rfind('hasta')      # el último "hasta" es la fecha límite
         for trozo in ([ctx[ih:]] if ih != -1 else []) + [ctx]:
             m = F_NUM.search(trozo) or F_TXT.search(trozo)
             if m:
-                val = norm(m.group(1))
+                # devolvemos siempre dd/mm/aaaa: uniforme, ordenable y sin los
+                # acentos perdidos al normalizar el texto para buscar
+                f = parse_fecha(m.group(1))
+                val = f.strftime('%d/%m/%Y') if f else norm(m.group(1))
                 if ih != -1: return val
                 mejor = mejor or val
     return mejor
@@ -439,7 +454,8 @@ PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'minplan': p_minplan, 'iapv
            'enersa': p_enersa, 'wpjson': p_wpjson, 'generico': p_generico}
 # ---------------------------------------------------------------- salida
 COLS = ['Detectada','Estado','Rubro','Organismo','Tipo','N°','Objeto',
-        'Apertura','Venta hasta','Valor pliego','Link','Pliego PDF','Fuente','ID']
+        'Apertura','Detalle apertura','Venta hasta','Valor pliego',
+        'Link','Pliego PDF','Fuente','ID']
 COLORES = {'Arquitectura':'D9E1F2','Infraestructura':'E2EFDA','Áridos':'FCE4D6','Vehículos':'FFF2CC'}
 
 def escribir_excel(filas, ruta):
@@ -458,7 +474,7 @@ def escribir_excel(filas, ruta):
         ws.append([('' if f.get(c) is None else f.get(c, '')) for c in COLS])
         r = ws.max_row
         # el N° va como TEXTO a propósito: si no, Excel convierte "08/2026" en fecha
-        for nombre in ('N°','Apertura','Venta hasta','Valor pliego','ID'):
+        for nombre in ('N°','Apertura','Detalle apertura','Venta hasta','Valor pliego','ID'):
             ws.cell(r, COLS.index(nombre) + 1).number_format = '@'
         col_rubro = COLS.index('Rubro') + 1
         if f['Rubro'] in COLORES:
@@ -474,8 +490,8 @@ def escribir_excel(filas, ruta):
                 cel.font = Font(color='0563C1', underline='single')
         ws.cell(r, COLS.index('Objeto') + 1).alignment = Alignment(wrap_text=True, vertical='center')
     anchos = {'Detectada':11,'Estado':14,'Rubro':16,'Organismo':32,'Tipo':20,'N°':12,
-              'Objeto':70,'Apertura':32,'Venta hasta':14,'Valor pliego':30,'Link':14,
-              'Pliego PDF':11,'Fuente':26,'ID':1}
+              'Objeto':70,'Apertura':12,'Detalle apertura':40,'Venta hasta':14,
+              'Valor pliego':28,'Link':14,'Pliego PDF':11,'Fuente':26,'ID':1}
     for nombre, w in anchos.items():
         ws.column_dimensions[get_column_letter(COLS.index(nombre) + 1)].width = w
     ws.column_dimensions[get_column_letter(COLS.index('ID') + 1)].hidden = True
@@ -588,7 +604,9 @@ def main():
             'Detectada': vistos.get(_id, HOY.strftime('%d/%m/%Y')),
             'Estado': est, 'Rubro': it['rubro'], 'Organismo': it.get('organismo', ''),
             'Tipo': it.get('tipo', ''), 'N°': it.get('numero', ''), 'Objeto': it.get('objeto', ''),
-            'Apertura': it.get('apertura_txt', ''),
+            # fecha limpia para ordenar y filtrar; el texto largo va aparte
+            'Apertura': it['fecha'].strftime('%d/%m/%Y') if it.get('fecha') else '',
+            'Detalle apertura': limpiar_apertura(it.get('apertura_txt', '')),
             'Venta hasta': it.get('venta') or 'Ver pliego',
             'Valor pliego': it.get('valor_pliego') or '',
             'Link': it.get('link', ''), 'Pliego PDF': it.get('pdf', ''),
@@ -639,7 +657,7 @@ def main():
         for f in vig:
             nuevo = ' *NUEVA*' if f in nuevas else ''
             print(f'   · [{f["Rubro"]:<15}] {f["Organismo"][:30]:<32} {f["N°"]:<12} {f["Objeto"][:52]}')
-            print(f'       apertura: {f["Apertura"][:46]:<48} venta hasta: {f["Venta hasta"]}{nuevo}')
+            print(f'       apertura: {f["Apertura"][:46]:<48} venta: {f["Venta hasta"]}{nuevo}')
     # alertas de fuentes caídas
     alertas = [f'{n}: {d["error"]}' for n, d in red.log.items() if d.get('error')]
     if alertas:
