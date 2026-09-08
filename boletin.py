@@ -167,21 +167,41 @@ def parsear(texto, fecha_bol):
             ))
     return out
 
-def recolectar(dias=7, sesion=None):
-    """Baja los boletines de los últimos N días y devuelve todos los avisos."""
-    s = sesion or requests.Session()
-    s.headers.update({'User-Agent': UA})
-    avisos, bajados = [], []
+def recolectar(dias=7, sesion=None, hilos=6):
+    """Baja los boletines de los últimos N días y devuelve todos los avisos.
+
+    Los PDFs se bajan en paralelo: son ~2 MB cada uno y en secuencia 20 días
+    tardaban más que el límite de tiempo por fuente.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    local = threading.local()
+
+    def sesion_del_hilo():
+        # requests.Session no es thread-safe: una por hilo
+        if not hasattr(local, 's'):
+            local.s = requests.Session()
+            local.s.headers.update({'User-Agent': UA})
+        return local.s
+
+    fechas = []
     for i in range(dias):
         d = date.today() - timedelta(days=i)
-        if d.weekday() >= 5:      # el boletín sale días hábiles
-            continue
-        t = bajar(d, s)
-        if not t:
-            continue
-        got = parsear(t, d)
-        bajados.append((d, len(got)))
-        avisos += got
+        if d.weekday() < 5:          # el boletín sale días hábiles
+            fechas.append(d)
+
+    def uno(d):
+        t = bajar(d, sesion_del_hilo())
+        return (d, parsear(t, d)) if t else (d, None)
+
+    avisos, bajados = [], []
+    with ThreadPoolExecutor(max_workers=hilos) as pool:
+        for d, got in pool.map(uno, fechas):
+            if got is None:
+                continue
+            bajados.append((d, len(got)))
+            avisos += got
+    bajados.sort(reverse=True)
     return avisos, bajados
 
 if __name__ == '__main__':

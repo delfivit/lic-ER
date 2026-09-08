@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 BASE = Path(__file__).parent
 HOY = date.today()
-BOLETIN_DIAS = 10   # cuántos días atrás mirar del Boletín Oficial
+BOLETIN_DIAS = 25   # cuántos días atrás mirar del Boletín Oficial
 EN_LA_NUBE = bool(os.environ.get('GITHUB_ACTIONS'))   # ¿corriendo en GitHub?
 UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/124.0 Safari/537.36')
@@ -550,6 +550,7 @@ def main():
     # frenar la corrida entera.
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FTimeout
     LIMITE = 45
+    LIMITE_LARGO = 150      # para fuentes pesadas como el Boletín (baja ~20 PDFs)
 
     def trabajo(f):
         fn = PARSERS.get(f['parser'], p_generico)
@@ -567,10 +568,11 @@ def main():
         futuros = {f['nombre']: (pool.submit(trabajo, f), time.time(), f) for f in fuentes}
         for nombre, (fut, t0, f) in futuros.items():
             try:
-                got = fut.result(timeout=LIMITE)
+                tope = LIMITE_LARGO if f['parser'] == 'boletin' else LIMITE
+                got = fut.result(timeout=tope)
             except FTimeout:
                 got = []
-                red.log.setdefault(nombre, {})['error'] = f'No respondió en {LIMITE}s (se abandonó)'
+                red.log.setdefault(nombre, {})['error'] = f'No respondió a tiempo (se abandonó)'
                 red.log[nombre].setdefault('http', 'TIMEOUT')
                 fut.cancel()
             except Exception as e:
