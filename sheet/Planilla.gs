@@ -238,6 +238,10 @@ function pintar_(hoja, n) {
   linkear_(hoja, n, 'Link', 'ver');
   linkear_(hoja, n, 'Pliego PDF', 'PDF');
 
+  // createFilter() explota si la hoja ya tiene uno, y esto corre en cada
+  // actualización: hay que sacar el anterior primero.
+  var filtro = hoja.getFilter();
+  if (filtro) filtro.remove();
   hoja.getRange(1, 1, n + 1, COLS.length).createFilter();
 }
 
