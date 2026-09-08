@@ -58,11 +58,11 @@
    "nota": "APAGADA: la página quedó en 2016, sin llamados actuales"
   },
   {
-   "activa": true,
+   "activa": false,
    "nombre": "Municipalidad de Chajarí",
    "url": "https://licitaciones.chajari.gob.ar/licitaciones",
    "parser": "generico",
-   "nota": "El sitio principal lo muestra en un iframe; esta es la URL real"
+   "nota": "Apagada: el listado viene en un iframe con JavaScript. No hace falta: sus licitaciones ya llegan por el Boletín Oficial y Min. Planeamiento (verificado 08/09/2026)."
   },
   {
    "activa": true,
