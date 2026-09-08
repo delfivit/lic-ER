@@ -15,7 +15,11 @@
  *************************************************************************/
 
 var CFG = {
-  CSV: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/licitaciones.csv',
+  // Se lee por la API de GitHub y NO por raw.githubusercontent.com: ese CDN
+  // cachea varios minutos y devolvía datos viejos aunque el repo ya estuviera
+  // actualizado (verificado). La API entrega siempre la última versión.
+  CSV: 'https://api.github.com/repos/delfivit/lic-ER/contents/licitaciones.csv',
+  CSV_RESPALDO: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/licitaciones.csv',
   HOJA: 'Licitaciones',
   RESUMEN: 'Resumen',
   HORA: 9                      // hora a la que se actualiza sola (GitHub corre 8:00)
@@ -107,10 +111,11 @@ function actualizar() {
 
 // ====================== BAJAR EL CSV ==================================
 function bajarCsv_() {
+  var texto = pedir_(CFG.CSV, { 'Accept': 'application/vnd.github.raw' });
+  if (!texto) texto = pedir_(CFG.CSV_RESPALDO + '?t=' + Date.now(), {});
+  if (!texto) return [];
   try {
-    var r = UrlFetchApp.fetch(CFG.CSV + '?t=' + Date.now(), { muteHttpExceptions: true });
-    if (r.getResponseCode() !== 200) return [];
-    var tabla = Utilities.parseCsv(r.getContentText());
+    var tabla = Utilities.parseCsv(texto);
     if (tabla.length < 2) return [];
     var cab = tabla[0], out = [];
     for (var i = 1; i < tabla.length; i++) {
@@ -120,8 +125,18 @@ function bajarCsv_() {
     }
     return out;
   } catch (e) {
-    Logger.log('Error bajando el CSV: ' + e);
+    Logger.log('Error leyendo el CSV: ' + e);
     return [];
+  }
+}
+
+function pedir_(url, headers) {
+  try {
+    var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: headers });
+    return r.getResponseCode() === 200 ? r.getContentText() : null;
+  } catch (e) {
+    Logger.log('No pude bajar ' + url + ': ' + e);
+    return null;
   }
 }
 
