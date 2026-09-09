@@ -462,14 +462,13 @@ function actualizarFuentes_(ss) {
                         : 'Agregada por el equipo — todavía no se probó', '']);
   });
 
-  // Limpiar TODO antes de reescribir. Si sólo se borra el bloque de datos, el
-  // texto de ayuda del pie queda pegado más abajo y se va duplicando en cada
-  // corrida. Lo que escribió el equipo ya está a salvo en `previas`.
-  // clear() borra el contenido pero NO las reglas de validación: quedaban
-  // pegadas en filas donde después va el texto de ayuda, y Google rechazaba la
-  // escritura ("infringen las reglas de validación").
-  sh.clear();
-  sh.clearDataValidations();
+  // Se BORRA y se vuelve a crear la hoja en vez de limpiarla. Ni clear() ni
+  // clearDataValidations() alcanzan: quedaban validaciones y celdas combinadas
+  // heredadas que hacían fallar la escritura ("los datos infringen las reglas
+  // de validación"). Lo que escribió el equipo ya está a salvo en `previas`.
+  var posicion = sh.getIndex() - 1;
+  ss.deleteSheet(sh);
+  sh = ss.insertSheet(CFG.FUENTES, posicion);
   sh.getRange(1, 1, 1, F_COLS.length).setValues([F_COLS]);
   for (var c = 0; c < F_COLS.length; c++) {
     sh.getRange(1, c + 1).setFontWeight('bold').setFontColor('#ffffff')
@@ -504,9 +503,10 @@ function actualizarFuentes_(ss) {
     sh.getRange(2, 4, filas.length, 1).setDataValidation(vP);
   }
 
-  // instrucciones al pie
+  // Instrucciones al pie, SIN combinar celdas: los merges arrastraban
+  // validaciones de otras columnas y rompían la escritura.
   var f = filas.length + 3;
-  sh.getRange(f, 1, 1, 6).merge().setValue('CÓMO AGREGAR UN SITIO NUEVO')
+  sh.getRange(f, 1).setValue('CÓMO AGREGAR UN SITIO NUEVO')
     .setFontWeight('bold').setBackground('#1E7B4F').setFontColor('#ffffff');
   [ '1) Escribí una fila nueva abajo de todo: Activa = SI, un Nombre, la URL y el Parser.',
     '2) Parser: probá "wpjson" primero (sirve en cualquier sitio hecho con WordPress).',
@@ -518,7 +518,7 @@ function actualizarFuentes_(ss) {
     '',
     'Si una fuente queda en rojo o naranja, entrá a esa web a mano hasta que se arregle.'
   ].forEach(function (t, i) {
-    sh.getRange(f + 1 + i, 1, 1, 8).merge().setValue(t).setFontColor(i >= 5 ? '#666666' : '#000000');
+    sh.getRange(f + 1 + i, 1).setValue(t).setFontColor(i >= 5 ? '#666666' : '#000000');
   });
 
   var anchos = [60, 240, 330, 95, 260, 120, 95, 95, 110, 300, 120];
@@ -590,7 +590,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v5 · 09/09/2026';
+var VERSION = 'v6 · 09/09/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
