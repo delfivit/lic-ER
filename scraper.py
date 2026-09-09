@@ -477,7 +477,8 @@ def p_boletin(red, url, nombre):
             fecha=f_ap,
             venta=f_venta,
             valor_pliego=a['valor_pliego'][:70] if a['valor_pliego'] else '',
-            link=a['url'], pdf=a['url'],
+            link=a.get('url_pagina') or a['url'],      # abre en la página del aviso
+            pdf=a.get('url_pagina') or a['url'],
             uid=f"BO|{a['aviso_id']}" if a['aviso_id'] else f"BO|{a['organismo']}|{a['numero']}|{a['objeto'][:60]}",
             extra=' · '.join(detalle),
         ))

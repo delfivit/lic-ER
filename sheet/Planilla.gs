@@ -255,7 +255,12 @@ function linkear_(hoja, n, columna, texto) {
   var out = [];
   for (var i = 0; i < n; i++) {
     var u = (vals[i][0] || '').toString();
-    out.push([/^https?:\/\//.test(u) ? '=HYPERLINK("' + u.replace(/"/g, '%22') + '";"' + texto + '")' : '']);
+    if (!/^https?:\/\//.test(u)) { out.push(['']); continue; }
+    // Los avisos del Boletín traen #page=N. El boletín tiene ~100 páginas, así
+    // que además de abrir ahí mostramos el número por si el visor no salta.
+    var pag = u.match(/#page=(\d+)/);
+    var rotulo = pag ? (texto + ' pág. ' + pag[1]) : texto;
+    out.push(['=HYPERLINK("' + u.replace(/"/g, '%22') + '";"' + rotulo + '")']);
   }
   hoja.getRange(2, c, n, 1).setFormulas(out);
 }

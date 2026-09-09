@@ -38,10 +38,16 @@ def desdoblar(s):
         return w
     return re.sub(r'\S+', fix, s)
 
+MARCA_PAG = '\u241epag%d\u241e'          # invisible, para saber en qué página cae cada aviso
+RE_MARCA = re.compile(r'\u241epag(\d+)\u241e')
+
 def texto_de_pdf(pdf_bytes):
     import io
     r = PdfReader(io.BytesIO(pdf_bytes))
-    t = '\n'.join((p.extract_text() or '') for p in r.pages)
+    # se intercala una marca por página: el boletín tiene ~100 páginas y así el
+    # enlace puede abrir directo donde está el aviso, en vez de obligar a
+    # buscarlo a mano en todo el PDF
+    t = '\n'.join((MARCA_PAG % i) + (p.extract_text() or '') for i, p in enumerate(r.pages, 1))
     t = re.sub(r'[ \t]+', ' ', t)
     # los pies de página parten los avisos al medio
     t = re.sub(r'\n?\s*P\s?ar\s?an\s?á[^\n]{0,80}BOLETIN OFICIAL[^\n]*\n?', '\n', t)
@@ -80,12 +86,13 @@ RE_TIPO_NUM = re.compile(
     r'\s*(?:N[°ºo\.]*\s*)?([\dA-Z]+\s*[-/]\s*\d{2,4})?', re.I)
 
 def limpiar(s, maxlen=600):
-    s = re.sub(r'\s+', ' ', s or '').strip(' .-–—')
+    s = RE_MARCA.sub(' ', s or '')
+    s = re.sub(r'\s+', ' ', s).strip(' .-–—')
     return s[:maxlen]
 
 def secciones_licitaciones(texto):
     """Recorta el texto a la(s) zona(s) donde están los avisos de licitación."""
-    marcas = [m.end() for m in re.finditer(r'\n\s*LICITACIONES\s*\n', texto)]
+    marcas = [m.end() for m in re.finditer(r'\n\s*(?:\u241epag\d+\u241e)?\s*LICITACIONES\s*\n', texto)]
     if not marcas:
         return []
     # se descarta el índice del principio: la sección real es la última marca
@@ -107,13 +114,22 @@ def parsear(texto, fecha_bol):
         cortes = [m.end() for m in re.finditer(r'ID:\s*\d+\s*-\s*[^\n]*', sec)]
         bloques, ant = [], 0
         for c in cortes:
-            bloques.append(sec[ant:c]); ant = c
+            bloques.append((ant, sec[ant:c])); ant = c
         if ant < len(sec) - 60:
-            bloques.append(sec[ant:])
-        for bloque in bloques:
+            bloques.append((ant, sec[ant:]))
+        for inicio, bloque in bloques:
+            # La marca va al principio de cada página, así que un aviso que entra
+            # entero en una página no contiene ninguna: hay que mirar la última
+            # marca ANTERIOR al aviso, no las de adentro.
+            previas_ = RE_MARCA.findall(sec[:inicio])
+            adentro_ = RE_MARCA.findall(bloque)
+            pag_prev = int(previas_[-1]) if previas_ else 0
             bloque = FIN_AVISO.sub('\n', bloque)
             if len(bloque) < 90 or not re.search(r'licitaci|concurso|compulsa|contrataci', bloque, re.I):
                 continue
+            # si el aviso cruza de página, vale la primera de las que abarca
+            pagina = int(adentro_[0]) if adentro_ else pag_prev
+            bloque = RE_MARCA.sub(' ', bloque)
             lineas = [l.strip() for l in bloque.split('\n') if l.strip()]
             if not lineas: continue
 
@@ -182,6 +198,9 @@ def parsear(texto, fecha_bol):
                 presupuesto=campos['presup'],
                 aviso_id=mid.group(1) if mid else '',
                 fecha_boletin=fecha_bol, url=url_boletin(fecha_bol),
+                pagina=pagina,
+                # #page=N hace que el visor abra directamente en el aviso
+                url_pagina=url_boletin(fecha_bol) + (('#page=%d' % pagina) if pagina else ''),
             ))
     return out
 
