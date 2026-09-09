@@ -354,6 +354,91 @@ def p_minplan(red, url, nombre):
             fecha=parse_fecha(apertura), link=link, pdf='', uid=link))
     return out
 
+def datos_de_imagen(url_img, sesion):
+    """Lee la foto del llamado (el IAPV publica así) y saca apertura, valor del
+    pliego y presupuesto. Si no está instalado el lector de imágenes, devuelve
+    vacío y todo lo demás sigue funcionando igual."""
+    if not url_img:
+        return {}
+    if url_img in _OCR_CACHE:
+        return _OCR_CACHE[url_img]
+    salida = {}
+    try:
+        import pytesseract
+        from PIL import Image
+        import io as _io
+        r = sesion.get(url_img, timeout=(10, 40))
+        if r.status_code != 200:
+            _OCR_CACHE[url_img] = {}
+            return {}
+        img = Image.open(_io.BytesIO(r.content))
+        if img.width < 900:                       # agrandar mejora mucho el reconocimiento
+            img = img.resize((img.width * 2, img.height * 2))
+        texto = pytesseract.image_to_string(img, lang='spa')
+        salida = datos_de_texto_aviso(texto)
+        salida['texto'] = norm(texto)[:1500]
+    except ImportError:
+        _avisar_ocr('falta la librería pytesseract')
+    except Exception as e:
+        # un solo aviso por corrida, no uno por imagen
+        _avisar_ocr('no está instalado el lector de imágenes (tesseract)'
+                    if 'Tesseract' in type(e).__name__ else f'{type(e).__name__}')
+    _OCR_CACHE[url_img] = salida
+    return salida
+
+_OCR_CACHE = {}
+_OCR_AVISADO = set()
+
+def _avisar_ocr(motivo):
+    if motivo in _OCR_AVISADO:
+        return
+    _OCR_AVISADO.add(motivo)
+    print(f'  (las fechas del IAPV vienen en una imagen y {motivo}: '
+          f'quedan como "ver pliego")')
+
+def datos_de_texto_aviso(texto):
+    """Saca apertura, valor de pliego y presupuesto de un aviso en texto plano."""
+    t = norm(texto)
+    out = {}
+    m = re.search(r'APERTURA[^\n]{0,60}?D[IÍ]A\s*:?\s*(\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4})', t, re.I)
+    if not m:
+        m = re.search(r'APERTURA[^\n]{0,60}?(\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4})', t, re.I)
+    if m:
+        f = parse_fecha(m.group(1))
+        if f: out['apertura'] = f
+    m = re.search(r'VALOR\s+DEL?\s+PLIEGO\s*:?\s*([^\n]{3,50})', t, re.I)
+    if m: out['valor'] = norm(m.group(1))[:50]
+    m = re.search(r'PRESUPUESTO\s+OFICIAL\s*:?\s*([^\n]{3,60})', t, re.I)
+    if m: out['presupuesto'] = norm(m.group(1))[:60]
+    v = venta_pliego(t)
+    if v: out['venta'] = v
+    return out
+
+
+def detalle_iapv(red, url_articulo, nombre):
+    """Entra al artículo del IAPV y saca el PDF del pliego y la imagen del
+    llamado. El IAPV publica los datos en una FOTO, así que en el texto de la
+    página no hay ni fecha de apertura ni presupuesto."""
+    html = red.get(url_articulo, nombre)
+    if not html:
+        return {}
+    soup = BeautifulSoup(html, 'lxml')
+    origin = 'https://www.iapv.gob.ar'
+    completo = lambda h: h if h.startswith('http') else origin + (h if h.startswith('/') else '/' + h)
+    datos = {}
+    for a in soup.find_all('a', href=True):
+        txt = norm(a.get_text()).upper()
+        if not re.search(r'\.pdf', a['href'], re.I):
+            continue
+        if 'PLIEGO' in txt and 'pdf' not in datos:
+            datos['pdf'] = completo(a['href'])
+    for img in soup.find_all('img', src=True):
+        if re.search(r'/articulos/', img['src']):
+            datos['imagen'] = completo(img['src'])
+            break
+    return datos
+
+
 def p_iapv(red, url, nombre):
     html = red.get(url, nombre)
     if not html: return []
@@ -373,12 +458,20 @@ def p_iapv(red, url, nombre):
         m = re.search(r'n[°ºo]?\s*(\d+\s*/\s*\d{2,4})', titulo, re.I)
         obj = re.search(r'OBRA\s*:\s*([^.]+)', detalle, re.I)
         link = a['href'] if a['href'].startswith('http') else origin + a['href']
+        # El IAPV publica los datos del llamado en una IMAGEN: en el texto de la
+        # página no hay fecha de apertura ni presupuesto. Entramos al artículo
+        # para conseguir el PDF del pliego y leer la foto.
+        det = detalle_iapv(red, link, nombre)
+        leido = datos_de_imagen(det.get('imagen'), red.s) if det.get('imagen') else {}
+        apert = leido.get('apertura')
         out.append(dict(fuente=nombre, organismo='IAPV (Vivienda)', tipo='Licitación Pública',
             numero=re.sub(r'\s+', '', m.group(1)) if m else '',
             objeto=obj.group(1).strip() if obj else titulo, rubro='Infraestructura',
-            apertura_txt=f'Publicada {publicada} — ver pliego' if publicada else 'Ver pliego',
-            fecha=None, link=link, pdf='', uid=link,
-            venta=venta_pliego(detalle)))
+            apertura_txt=(apert.strftime('%d/%m/%Y') + ' (leído del aviso)' if apert
+                          else (f'Publicada {publicada} — ver pliego' if publicada else 'Ver pliego')),
+            fecha=apert, link=link, pdf=det.get('pdf', ''), uid=link,
+            valor_pliego=leido.get('valor', ''),
+            venta=leido.get('venta') or venta_pliego(detalle)))
     return out
 
 def p_enersa(red, url, nombre):
@@ -406,14 +499,18 @@ def p_wpjson(red, url, nombre):
         if not re.match(r'\s*(licitaci|concurso|contrataci|adquisici|provisi|compulsa)', titulo, re.I):
             continue                                            # descarta noticias
         resumen = norm(BeautifulSoup(p.get('excerpt', {}).get('rendered', ''), 'lxml').get_text(' '))
+        cuerpo = norm(BeautifulSoup(p.get('content', {}).get('rendered', ''), 'lxml').get_text(' '))
+        texto = cuerpo if len(cuerpo) > len(resumen) else resumen
         corte = r'(?=\s*[–—]?\s*(?:APERTURA|CONSULTA|PRESUPUESTO|VALOR DEL PLIEGO|VENTA|LUGAR|PLAZO|GARANT)\s*:|$)'
         mo = re.search(r'(?:OBJETO|PROYECTO A CONTRATAR|OBRA A CONTRATAR|OBRA)\s*:\s*(.{5,400}?)' + corte,
-                       resumen, re.I | re.S)
+                       texto, re.I | re.S)
         objeto = norm(mo.group(1)).strip(' .–—-') if mo else titulo
-        mf = re.search(r'APERTURA\s*:?\s*(?:El\s+)?(\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4})',
-                       resumen, re.I)
+        # "APERTURA: 23/09/26", "Apertura Fecha: 14/07/26", "Apertura de ofertas el día ..."
+        mf = re.search(r'APERTURA[^.]{0,45}?(\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{2,4})',
+                       texto, re.I | re.S)
         apertura = re.sub(r'\s+', '', mf.group(1)) if mf else 'Ver pliego'
         mn = re.search(r'n[°ºo]?\s*(\d+\s*/\s*\d{2,4})', titulo, re.I) or re.search(r'\b(\d{3,5})\b\s*:', titulo)
+        extra = datos_de_texto_aviso(texto)
         tipo = ('Concurso' if re.search(r'concurso', titulo, re.I) else
                 'Licitación Privada' if re.search(r'privada', titulo, re.I) else
                 'Contratación Directa' if re.search(r'contrataci', titulo, re.I) else

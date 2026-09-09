@@ -18,8 +18,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Instalar el lector de imágenes
+        # El IAPV publica la fecha de apertura en una FOTO: sin esto sus
+        # licitaciones quedan sin fecha (todo lo demás funciona igual).
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-spa
+
       - name: Instalar dependencias
-        run: pip install --quiet requests beautifulsoup4 lxml openpyxl pypdf playwright
+        run: pip install --quiet requests beautifulsoup4 lxml openpyxl pypdf playwright pytesseract pillow
 
       - name: Instalar el navegador
         # Hace falta para dos sitios: Paraná devuelve 403 a los datacenters y
