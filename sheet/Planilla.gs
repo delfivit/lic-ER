@@ -38,9 +38,18 @@ var MIAS = ['Seguimiento','Precio ofertado','Posición','Notas'];
 var AUTO2 = ['N°','Tipo','Valor pliego','Detalle apertura','Link','Pliego PDF','Fuente','Detectada','ID'];
 
 var COLS = AUTO.concat(MIAS).concat(AUTO2);
-// Estados que vienen de fábrica. El equipo puede escribir otros: el desplegable
-// sugiere, no obliga.
-var ESTADOS = ['', 'A revisar', 'En preparación', 'Presentada', 'Descartada', 'Ganada', 'Perdida'];
+// Estados del seguimiento, en el orden en que avanza una licitación, con el
+// color de cada uno. El equipo puede escribir otros: el desplegable sugiere,
+// no obliga, y los colores que agreguen a mano se respetan igual.
+var ESTADOS_COLOR = [
+  { estado: 'En preparación', fondo: '#D9D2E9', letra: '#000000' },
+  { estado: 'A revisar',      fondo: '#FFE599', letra: '#000000' },
+  { estado: 'Presentada',     fondo: '#D9EAD3', letra: '#000000' },
+  { estado: 'Descartada',     fondo: '#EFEFEF', letra: '#666666' },
+  { estado: 'Ganada',         fondo: '#38761D', letra: '#FFFFFF' },
+  { estado: 'Perdida',        fondo: '#A61C00', letra: '#FFFFFF' }
+];
+var ESTADOS = [''].concat(ESTADOS_COLOR.map(function (e) { return e.estado; }));
 
 // del nombre de la columna del CSV al de la planilla
 var DESDE_CSV = {
@@ -226,9 +235,9 @@ function pintar_(hoja, n) {
     var est = estados[i][0];
     bgE.push([est === 'Vigente' ? '#D9EAD3' : (est === 'Vencida' ? '#F4CCCC' : '#FFF2CC')]);
     fwE.push([est === 'Vigente' ? 'bold' : 'normal']);
+    // el color de esta columna lo pone el formato condicional: no lo tocamos
     var seg = (segs[i][0] || '').toString().trim();
-    // si no conocemos el estado, dejamos la celda como está en vez de blanquearla
-    bgS.push([colorSeg[seg] || (seg ? (fondoSegActual[i] && fondoSegActual[i][0]) || '#ffffff' : '#ffffff')]);
+    bgS.push([(fondoSegActual[i] && fondoSegActual[i][0]) || '#ffffff']);
     // apertura en rojo si es dentro de los próximos 7 días
     var f = aFecha_(aperturas[i][0]);
     var dias = f ? (f - hoy) / 86400000 : null;
@@ -249,6 +258,7 @@ function pintar_(hoja, n) {
             .setHelpText('Sugeridos: ' + lista.filter(String).join(', ') +
                          '. Podés escribir otro y se agrega solo.').build();
   hoja.getRange(2, cSeg, Math.max(n, 200), 1).setDataValidation(val);
+  pintarSeguimiento_(hoja, cSeg, Math.max(n, 200));
 
   // links clickeables
   linkear_(hoja, n, 'Link', 'ver');
@@ -259,6 +269,31 @@ function pintar_(hoja, n) {
   var filtro = hoja.getFilter();
   if (filtro) filtro.remove();
   hoja.getRange(1, 1, n + 1, COLS.length).createFilter();
+}
+
+/**
+ * Colorea la columna Seguimiento con reglas de formato condicional: cada estado
+ * con su color, como los chips del desplegable. Apps Script no puede pintar los
+ * chips en sí, pero esto se ve igual y lo mantiene el script solo.
+ */
+function pintarSeguimiento_(hoja, col, filas) {
+  var rango = hoja.getRange(2, col, filas, 1);
+  // sacar las reglas viejas de esta columna (si no, se van acumulando)
+  var otras = hoja.getConditionalFormatRules().filter(function (r) {
+    return !r.getRanges().some(function (x) {
+      return x.getColumn() === col && x.getRow() >= 2;
+    });
+  });
+  var nuevas = ESTADOS_COLOR.map(function (e) {
+    return SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(e.estado)
+      .setBackground(e.fondo)
+      .setFontColor(e.letra)
+      .setBold(true)
+      .setRanges([rango])
+      .build();
+  });
+  hoja.setConditionalFormatRules(otras.concat(nuevas));
 }
 
 /**
@@ -393,11 +428,13 @@ function armarResumen_(ss, filas, estadoFuentes) {
   titulo('CÓMO VENIMOS', '#1E7B4F');
   encabezado(['Estado', 'Cantidad']);
   // Los colores que eligió el equipo mandan sobre los de fábrica.
-  var colorSeg = {'Presentada':'#CFE2F3','Ganada':'#B7E1CD','Perdida':'#F4CCCC',
-                  'Descartada':'#EFEFEF','A revisar':'#FFF2CC','En preparación':'#FCE5CD'};
+  var colorSeg = {};
+  ESTADOS_COLOR.forEach(function (e) { colorSeg[e.estado] = e.fondo; });
   for (var e in _coloresSeg) colorSeg[e] = _coloresSeg[e];
   var hayAlguno = false;
-  ['A revisar', 'Presentada', 'Ganada', 'Perdida', 'Descartada'].forEach(function (e) {
+  var orden = ESTADOS_COLOR.map(function (e) { return e.estado; });
+  Object.keys(porSeg).forEach(function (e) { if (orden.indexOf(e) < 0) orden.push(e); });
+  orden.forEach(function (e) {
     if (!porSeg[e]) return;
     hayAlguno = true;
     sh.getRange(fila, 1, 1, 2).setValues([[e, porSeg[e]]]);
@@ -628,7 +665,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v7 · 09/09/2026';
+var VERSION = 'v8 · 09/09/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
