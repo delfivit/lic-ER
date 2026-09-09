@@ -3,6 +3,7 @@
   "id-75a5c9dd5b4aa6f3": "09/09/2026",
   "id-bc610b64999d147d": "09/09/2026",
   "id-b7b0120caf49d551": "09/09/2026",
+  "id-7a200161bcc9b02b": "09/09/2026",
   "id-85e6cfd11c8a8889": "09/09/2026",
   "id-28313c7a9524d0ee": "09/09/2026",
   "id-74dfdad7e5f9d048": "09/09/2026",
@@ -11,7 +12,6 @@
   "id-90c3d1f38f49418a": "09/09/2026",
   "id-9e58cc9ec0b69356": "09/09/2026",
   "id-608017f47f903d65": "09/09/2026",
-  "id-ddc4dfb118d357f7": "09/09/2026",
   "id-61b6e4f9568150b0": "09/09/2026",
   "id-511256e6329e386a": "09/09/2026",
   "id-d97b43a99f1e1824": "09/09/2026",
@@ -21,6 +21,7 @@
   "id-719cc55444d8579b": "09/09/2026",
   "id-fb80c8ade7a8651d": "09/09/2026",
   "id-439ddd7aaa7f7b3e": "09/09/2026",
+  "id-e90021854bcee649": "09/09/2026",
   "id-dff70529581309e6": "09/09/2026",
   "id-ccdfae2a7ede4696": "09/09/2026",
   "id-952aef4c115d8f12": "09/09/2026",
@@ -40,11 +41,12 @@
   "id-f53eab44dba8d43f": "09/09/2026",
   "id-22f9c51cdaebefb7": "09/09/2026",
   "id-46d81e3efd2ae483": "09/09/2026",
+  "id-0691eb485d7548eb": "09/09/2026",
   "id-bdd0abb0374c3f42": "09/09/2026",
   "id-42c411be9946d956": "09/09/2026",
   "id-023b6b75e7014a9c": "09/09/2026"
  },
- "ultima_corrida": "2026-09-09T08:30:33",
+ "ultima_corrida": "2026-09-09T11:18:23",
  "ceros": {
   "Boletín Oficial de Entre Ríos": 0,
   "Municipalidad de Paraná": 0,
@@ -56,11 +58,11 @@
   "Municipalidad de Crespo": 0,
   "Municipalidad de Federación": 0,
   "Municipalidad de Diamante": 0,
-  "Municipalidad de Oro Verde": 2,
+  "Municipalidad de Oro Verde": 0,
   "CAFESG (Salto Grande)": 0,
   "Municipalidad de San Benito": 0,
   "Municipalidad de Aldea Brasilera": 2,
-  "Poder Judicial de Entre Ríos": 2,
+  "Poder Judicial de Entre Ríos": 0,
   "IAPSER Seguros": 0
  }
 }

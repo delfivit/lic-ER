@@ -209,7 +209,7 @@ function pintar_(hoja, n) {
   var aperturas = hoja.getRange(2, cApert, n, 1).getValues();
 
   var colorRubro = {'Arquitectura':'#D9E1F2','Infraestructura':'#E2EFDA',
-                    'Áridos':'#FCE4D6','Vehículos':'#FFF2CC'};
+                    'Áridos':'#FCE4D6','Vehículos':'#FFF2CC','Materiales':'#E6D9F2'};
   var colorSeg = {'Presentada':'#CFE2F3','Ganada':'#B7E1CD','Perdida':'#F4CCCC',
                   'Descartada':'#EFEFEF','A revisar':'#FFF2CC'};
 
@@ -344,7 +344,7 @@ function armarResumen_(ss, filas, estadoFuentes) {
   // --- por rubro
   titulo('VIGENTES POR RUBRO', '#3C6E9F');
   encabezado(['Rubro', 'Cantidad']);
-  var colorRubro = {'Arquitectura':'#D9E1F2','Infraestructura':'#E2EFDA','Áridos':'#FCE4D6','Vehículos':'#FFF2CC'};
+  var colorRubro = {'Arquitectura':'#D9E1F2','Infraestructura':'#E2EFDA','Áridos':'#FCE4D6','Vehículos':'#FFF2CC','Materiales':'#E6D9F2'};
   Object.keys(porRubro).sort(function (a, b) { return porRubro[b] - porRubro[a]; })
     .forEach(function (r) {
       sh.getRange(fila, 1, 1, 2).setValues([[r, porRubro[r]]]);

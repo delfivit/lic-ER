@@ -114,7 +114,11 @@ RUIDO = ['servicio de limpieza','corte de pasto','desmalezamiento','desmalezado'
     'equipamiento informatic','telefonia','protesis','material descartable','odontolog',
     'farmac','medicamento','poliza de seguro','alquiler de inmueble','repuesto','neumatic',
     'heladera','aire acondicionado','mobiliario','venta de lotes','lotes de terreno',
-    'venta de terreno','servidor de base de datos','locacion de servicio']
+    'venta de terreno','servidor de base de datos','locacion de servicio',
+    'cafeteria','coffee break','cambio de aceite','amortiguador','service',
+    'informe de contratacion','registro de proveedor','cotejo de precios de bienes',
+    'para la venta de','venta de bienes','subasta de bienes','remate de bienes',
+    'venta de vehiculo','venta de automotor','venta de un vehiculo','venta de maquina']
 
 RUBROS = [
     ('Vehículos', ['camioneta','camion','vehiculo','pick up','pick-up','pickup','utilitario',
@@ -131,6 +135,12 @@ RUBROS = [
         'bacheo','ruta','camino','puente','obra basica','cordon cuneta','alcantarilla','hidraulica',
         'iluminacion','alumbrado publico','red de distribucion','saneamiento','planta depuradora',
         'acueducto','enripiado','calzada']),
+    ('Materiales', ['hormigon','cemento','portland','hierro','malla sima','malla q','ladrillo',
+        'bloque de hormigon','arido','caño','tuberia','asfalto','emulsion asfaltica','cal ',
+        'chapa','chapas','tirante','clavo','pintura para obra','membrana','aislante',
+        'material de construccion','materiales de construccion','materiales para la obra',
+        'materiales para obra','premoldeado','viga','columna de hormigon','adoquin',
+        'cordon de hormigon','tubo de hormigon','alcantarilla de hormigon']),
     ('Arquitectura', ['escuela','edificio','edilicia','edilicio','refaccion','remodelacion',
         'ampliacion','construccion','reparaciones generales','reparacion','cubierta de techo',
         'techo','banos','aulas','jardin de infantes','arquitectura','obra civil','mamposteria',
@@ -415,12 +425,113 @@ def p_wpjson(red, url, nombre):
             venta=venta_pliego(resumen)))
     return out
 
+# Formas en que los organismos titulan un llamado. "Solicitud de Cotización" la
+# usa el Poder Judicial; sin ella su página devolvía 0.
+def tabla_de_licitaciones(soup, url, nombre):
+    """Lee una grilla de licitaciones cuando el sitio publica así. Mapea las
+    columnas por su encabezado, que cambia de municipio en municipio."""
+    origin = re.match(r'^https?://[^/]+', url).group(0)
+    QUE_ES = {
+        'numero':   ('numero', 'nro', 'n°', 'licitacion', 'expediente'),
+        'objeto':   ('objeto', 'detalle', 'descripcion', 'obra', 'concepto'),
+        'apertura': ('apertura', 'fecha'),
+        'presup':   ('presupuesto', 'monto', 'oficial'),
+        'pliego':   ('costo del pliego', 'valor del pliego', 'costo', 'valor'),
+    }
+    for tabla in soup.select('table'):
+        filas = tabla.select('tr')
+        if len(filas) < 2:
+            continue
+        cabeza = [sin_acentos(norm(c.get_text()).lower())
+                  for c in filas[0].select('th, td')]
+        if not cabeza or not any('objeto' in h or 'licitacion' in h for h in cabeza):
+            continue
+        col = {}
+        for i, h in enumerate(cabeza):
+            for campo, claves in QUE_ES.items():
+                if campo in col: continue
+                if any(k in h for k in claves): col[campo] = i
+        if 'objeto' not in col:
+            continue
+        out = []
+        for fila in filas[1:]:
+            celdas = fila.select('td')
+            if len(celdas) < 2: continue
+            def dato(campo):
+                i = col.get(campo)
+                return norm(celdas[i].get_text(' ')) if i is not None and i < len(celdas) else ''
+            objeto = dato('objeto')
+            if len(objeto) < 8: continue
+            apert = dato('apertura')
+            # los enlaces al pliego suelen estar en la fila
+            pdf = ''
+            for a in fila.select('a[href]'):
+                if re.search(r'pliego|\.pdf', a['href'] + a.get_text(), re.I):
+                    pdf = a['href'] if a['href'].startswith('http') else origin + a['href']
+                    break
+            out.append(dict(
+                fuente=nombre, organismo=nombre, tipo='Licitación',
+                numero=dato('numero'), objeto=objeto,
+                apertura_txt=apert or 'Ver el sitio', fecha=parse_fecha(apert),
+                venta=venta_pliego(fila.get_text(' ')),
+                valor_pliego=dato('pliego'), link=pdf or url, pdf=pdf,
+                uid=f"{nombre}|{dato('numero')}|{sin_acentos(objeto.lower())[:70]}"))
+        if out:
+            return out
+    return []
+
+
+DISPARADORES = (r'licitaci[oó]n|concurso de precios|concurso p[uú]blico|concurso|'
+                r'contrataci[oó]n|obra p[uú]blica|adquisici[oó]n|'
+                r'solicitud de cotizaci[oó]n|pedido de cotizaci[oó]n|compulsa|'
+                r'llamado a|convocatoria')
+
 def p_generico(red, url, nombre):
     html = red.get(url, nombre)
     if not html: return []
     soup = BeautifulSoup(html, 'lxml')
     for t in soup(['script', 'style', 'nav', 'footer']): t.decompose()
-    disp = re.compile(r'licitaci[oó]n|concurso de precios|concurso|contrataci[oó]n|obra p[uú]blica|adquisici[oó]n', re.I)
+    disp = re.compile(DISPARADORES, re.I)
+
+    # 1) Tablas con encabezados reconocibles (Crespo publica así: número, objeto,
+    #    apertura, presupuesto y costo del pliego, todo en una grilla).
+    de_tabla = tabla_de_licitaciones(soup, url, nombre)
+    if de_tabla:
+        return de_tabla
+
+    # 2) Títulos de artículos/encabezados: más precisos que rastrear líneas
+    #    sueltas de texto, que traen menús y pies de página.
+    titulos = []
+    for el in soup.select('article h1, article h2, article h3, article h4, '
+                          'h2 a, h3 a, h4 a, .entry-title, .titulo, li h3, li h4'):
+        t = norm(el.get_text(' '))
+        if 18 < len(t) < 260 and disp.search(t):
+            enlace = el if el.name == 'a' else el.find('a', href=True)
+            href = enlace['href'] if (enlace is not None and enlace.has_attr('href')) else ''
+            titulos.append((t, href))
+    if titulos:
+        out, visto = [], set()
+        for t, href in titulos:
+            k = sin_acentos(t.lower())
+            if k in visto: continue
+            visto.add(k)
+            mn = re.search(r'n[°ºo]?\s*(\d+\s*[/-]\s*\d{2,4})', t, re.I)
+            # sin número y corto: es un enlace de sección, no un llamado
+            if not mn and len(t) < 45: continue
+            # el objeto suele ir después de los dos puntos
+            obj = t.split(':', 1)[1].strip() if ':' in t and len(t.split(':', 1)[1]) > 15 else t
+            enlace = href if href.startswith('http') else (
+                re.match(r'^https?://[^/]+', url).group(0) + href if href.startswith('/') else url)
+            out.append(dict(fuente=nombre, organismo=nombre,
+                tipo=('Solicitud de Cotización' if re.search(r'cotizaci', t, re.I) else
+                      'Licitación Pública' if re.search(r'licitaci.{0,3}p[uú]blica', t, re.I) else
+                      'Licitación' if re.search(r'licitaci', t, re.I) else
+                      'Concurso' if re.search(r'concurso', t, re.I) else '(según sitio)'),
+                numero=re.sub(r'\s+', '', mn.group(1)) if mn else '',
+                objeto=obj, apertura_txt='Ver el sitio', fecha=parse_fecha(t),
+                link=enlace, pdf='', uid=f'{nombre}|{k[:120]}'))
+        return out
+
     yy = HOY.year % 100
     # "2026", "2025", "10/26", "09/2025", "10/2.025"
     anios = re.compile(r'\b(?:%d|%d)\b|\b\d{1,3}\s*/\s*(?:%d|%d|%d|%d)\b|\b\d{1,3}\s*/\s*2\.?0(?:%d|%d)\b'
@@ -528,7 +639,7 @@ PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'cafesg': p_cafesg, 'minpla
 COLS = ['Detectada','Estado','Rubro','Organismo','Tipo','N°','Objeto',
         'Apertura','Detalle apertura','Venta hasta','Valor pliego',
         'Link','Pliego PDF','Fuente','ID']
-COLORES = {'Arquitectura':'D9E1F2','Infraestructura':'E2EFDA','Áridos':'FCE4D6','Vehículos':'FFF2CC'}
+COLORES = {'Arquitectura':'D9E1F2','Infraestructura':'E2EFDA','Áridos':'FCE4D6','Vehículos':'FFF2CC','Materiales':'E6D9F2'}
 
 def escribir_excel(filas, ruta):
     from openpyxl import Workbook
