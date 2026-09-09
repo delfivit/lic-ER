@@ -443,7 +443,7 @@ function actualizarFuentes_(ss) {
     var p = porUrl[k];
     vistas[k] = true;
     filas.push([
-      p ? p.activa : (d['Estado'] === 'Apagada' ? 'NO' : 'SI'),
+      siNo_(p ? p.activa : (d['Estado'] === 'Apagada' ? 'NO' : 'SI')),
       p && p.nombre ? p.nombre : d['Fuente'],
       d['URL'],
       p && p.parser ? p.parser : d['Parser'],
@@ -456,7 +456,7 @@ function actualizarFuentes_(ss) {
   var sinDiag = (diag.length === 0);
   previas.forEach(function (p) {
     if (vistas[norUrl_(p.url)]) return;
-    filas.push([p.activa, p.nombre, p.url, p.parser, p.notas,
+    filas.push([siNo_(p.activa), p.nombre, p.url, p.parser, p.notas,
                 sinDiag ? 'Sin datos' : 'Se busca mañana', '', '', '',
                 sinDiag ? 'No se pudo leer el estado de las fuentes. Probá "Actualizar ahora" en un rato.'
                         : 'Agregada por el equipo — todavía no se probó', '']);
@@ -465,7 +465,11 @@ function actualizarFuentes_(ss) {
   // Limpiar TODO antes de reescribir. Si sólo se borra el bloque de datos, el
   // texto de ayuda del pie queda pegado más abajo y se va duplicando en cada
   // corrida. Lo que escribió el equipo ya está a salvo en `previas`.
+  // clear() borra el contenido pero NO las reglas de validación: quedaban
+  // pegadas en filas donde después va el texto de ayuda, y Google rechazaba la
+  // escritura ("infringen las reglas de validación").
   sh.clear();
+  sh.clearDataValidations();
   sh.getRange(1, 1, 1, F_COLS.length).setValues([F_COLS]);
   for (var c = 0; c < F_COLS.length; c++) {
     sh.getRange(1, c + 1).setFontWeight('bold').setFontColor('#ffffff')
@@ -489,13 +493,15 @@ function actualizarFuentes_(ss) {
     }
     sh.getRange(2, 1, filas.length, F_COLS.length).setBackgrounds(fondos);
 
+    // Sólo sobre las filas de datos (antes abarcaba 60 filas y pisaba el texto
+    // de ayuda del pie). Y permisivas: avisan, pero no bloquean la escritura.
     var vSi = SpreadsheetApp.newDataValidation().requireValueInList(['SI','NO'], true)
-              .setAllowInvalid(false).build();
-    sh.getRange(2, 1, Math.max(filas.length, 60), 1).setDataValidation(vSi);
+              .setAllowInvalid(true).setHelpText('Escribí SI o NO').build();
+    sh.getRange(2, 1, filas.length, 1).setDataValidation(vSi);
     var vP = SpreadsheetApp.newDataValidation().requireValueInList(PARSERS, true)
              .setAllowInvalid(true)
              .setHelpText('wpjson = sitios WordPress (probá este primero) · generico = cualquier otro').build();
-    sh.getRange(2, 4, Math.max(filas.length, 60), 1).setDataValidation(vP);
+    sh.getRange(2, 4, filas.length, 1).setDataValidation(vP);
   }
 
   // instrucciones al pie
@@ -519,6 +525,13 @@ function actualizarFuentes_(ss) {
   for (var c = 0; c < anchos.length; c++) sh.setColumnWidth(c + 1, anchos[c]);
   sh.setFrozenRows(1);
   return { total: filas.length, conError: conError };
+}
+
+// La columna Activa tiene un desplegable SI/NO: cualquier otra cosa (o vacío)
+// hace fallar la escritura entera.
+function siNo_(v) {
+  var t = (v == null ? '' : v).toString().toUpperCase().trim();
+  return (t === 'NO' || t === 'N' || t === 'FALSE' || t === 'FALSO') ? 'NO' : 'SI';
 }
 
 function norUrl_(u) {
