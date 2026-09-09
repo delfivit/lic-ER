@@ -97,7 +97,7 @@ CAMPOS = {
     'presup':   r'PRESUPUESTO\s+OFICIAL\s*:?\s*(.+?)(?=\n|\Z)',
     # "El pliego será Gratuito", "sin costo", "sin cargo": también es el valor
     'gratis':   r'(?:El|Los)\s+[Pp]liegos?\s+(?:ser[áa]n?|es|son)\s+'
-                r'(gratuitos?|sin\s+costo|sin\s+cargo)',
+                r'([Gg]ratuitos?|[Ss]in\s+[Cc]osto|[Ss]in\s+[Cc]argo|GRATUITOS?|SIN\s+COSTO|SIN\s+CARGO)',
 }
 RE_TIPO_NUM = re.compile(
     r'(Licitaci[oó]n\s+P[uú]blica|Licitaci[oó]n\s+Privada|Licitaci[oó]n|'
