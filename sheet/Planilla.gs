@@ -15,12 +15,15 @@
  *************************************************************************/
 
 var CFG = {
-  // Se lee por la API de GitHub y NO por raw.githubusercontent.com: ese CDN
-  // cachea varios minutos y devolvía datos viejos aunque el repo ya estuviera
-  // actualizado (verificado). La API entrega siempre la última versión.
-  CSV: 'https://api.github.com/repos/delfivit/lic-ER/contents/licitaciones.csv',
-  CSV_RESPALDO: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/licitaciones.csv',
-  DIAG: 'https://api.github.com/repos/delfivit/lic-ER/contents/diagnostico.csv',
+  // Se lee por raw.githubusercontent y la API queda de respaldo. La API es más
+  // fresca (raw cachea unos minutos) PERO sólo admite 60 pedidos por hora y por
+  // IP, y Apps Script sale por IPs de Google compartidas con miles de usuarios:
+  // el cupo se agota y devuelve vacío. Como esto corre una vez por día, esos
+  // minutos de caché no molestan.
+  CSV: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/licitaciones.csv',
+  CSV_RESPALDO: 'https://api.github.com/repos/delfivit/lic-ER/contents/licitaciones.csv',
+  DIAG: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/diagnostico.csv',
+  DIAG_RESPALDO: 'https://api.github.com/repos/delfivit/lic-ER/contents/diagnostico.csv',
   FUENTES: 'Fuentes',
   HOJA: 'Licitaciones',
   RESUMEN: 'Resumen',
@@ -117,8 +120,8 @@ function actualizar() {
 
 // ====================== BAJAR EL CSV ==================================
 function bajarCsv_() {
-  var texto = pedir_(CFG.CSV, { 'Accept': 'application/vnd.github.raw' });
-  if (!texto) texto = pedir_(CFG.CSV_RESPALDO + '?t=' + Date.now(), {});
+  var texto = pedir_(CFG.CSV + '?t=' + Date.now(), {});
+  if (!texto) texto = pedir_(CFG.CSV_RESPALDO, { 'Accept': 'application/vnd.github.raw' });
   if (!texto) return [];
   try {
     var tabla = Utilities.parseCsv(texto);
@@ -445,10 +448,13 @@ function actualizarFuentes_(ss) {
     ]);
   });
   // las que el equipo agregó y todavía no se buscaron
+  var sinDiag = (diag.length === 0);
   previas.forEach(function (p) {
     if (vistas[norUrl_(p.url)]) return;
     filas.push([p.activa, p.nombre, p.url, p.parser, p.notas,
-                'Se busca mañana', '', '', '', 'Agregada por el equipo — todavía no se probó', '']);
+                sinDiag ? 'Sin datos' : 'Se busca mañana', '', '', '',
+                sinDiag ? 'No se pudo leer el estado de las fuentes. Probá "Actualizar ahora" en un rato.'
+                        : 'Agregada por el equipo — todavía no se probó', '']);
   });
 
   // Limpiar TODO antes de reescribir. Si sólo se borra el bloque de datos, el
@@ -515,7 +521,9 @@ function norUrl_(u) {
 }
 
 function bajarDiagnostico_() {
-  var t = pedir_(CFG.DIAG, { 'Accept': 'application/vnd.github.raw' });
+  // OJO: acá faltaba el respaldo y por eso la hoja Fuentes quedaba sin estados.
+  var t = pedir_(CFG.DIAG + '?t=' + Date.now(), {});
+  if (!t) t = pedir_(CFG.DIAG_RESPALDO, { 'Accept': 'application/vnd.github.raw' });
   if (!t) return [];
   try {
     var tabla = Utilities.parseCsv(t);
