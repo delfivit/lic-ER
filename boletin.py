@@ -77,13 +77,28 @@ CAMPOS = {
     'objeto':   r'(?:OBJETO|Objeto|OBRA|Obra)\s*:\s*(.+?)(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:|\Z)',
     'apertura': r'(?:APERTURA(?:\s+DE\s+(?:SOBRES|OFERTAS))?|Apertura(?:\s+de\s+Sobres)?)\s*:?\s*(.+?)(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:|\Z)',
     'venta':    r'(?:VENTA\s+DE\s+PLIEGOS?|ADQUISICI[OÓ]N\s+DE\s+PLIEGOS?|RETIRO\s+DE\s+PLIEGOS?)\s*:?\s*(.+?)(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:|\Z)',
-    'valor':    r'(?:VALOR\s+DEL\s+PLIEGO|PRECIO\s+DEL\s+PLIEGO|Valor\s+del\s+Pliego)\s*:?\s*(.+?)(?=\n|\Z)',
+    'valor':    r'(?:VALOR\s+DE\s*L?\s+PLIEGOS?|PRECIO\s+DE\s*L?\s+PLIEGOS?|'
+                r'COSTO\s+DE\s*L?\s+PLIEGOS?|ARANCEL)\s*:?\s*(.+?)(?=\n|\Z)',
     'presup':   r'PRESUPUESTO\s+OFICIAL\s*:?\s*(.+?)(?=\n|\Z)',
 }
 RE_TIPO_NUM = re.compile(
-    r'(Licitaci[oó]n\s+P[uú]blica|Licitaci[oó]n\s+Privada|Licitaci[oó]n|Concurso\s+de\s+Precios|'
-    r'Concurso\s+P[uú]blico|Contrataci[oó]n\s+Directa|Compulsa\s+Abreviada|Remate)'
+    r'(Licitaci[oó]n\s+P[uú]blica|Licitaci[oó]n\s+Privada|Licitaci[oó]n|'
+    r'Lic\.?\s*Pca\.?|Lic\.?\s*P[uú]b\.?|Lic\.?\s*Priv\.?|'
+    r'Concurso\s+de\s+Precios|Concurso\s+P[uú]blico|Concurso|'
+    r'Contrataci[oó]n\s+Directa|Compulsa\s+Abreviada|Remate|Subasta)'
     r'\s*(?:N[°ºo\.]*\s*)?([\dA-Z]+\s*[-/]\s*\d{2,4})?', re.I)
+
+# los tipos abreviados se muestran con el nombre completo
+ABREVIATURAS = [
+    (re.compile(r'^lic\.?\s*pca\.?$', re.I), 'Licitación Pública'),
+    (re.compile(r'^lic\.?\s*p[uú]b\.?$', re.I), 'Licitación Pública'),
+    (re.compile(r'^lic\.?\s*priv\.?$', re.I), 'Licitación Privada'),
+]
+def nombre_completo(tipo):
+    for patron, completo in ABREVIATURAS:
+        if patron.match(tipo.strip()):
+            return completo
+    return tipo
 
 def limpiar(s, maxlen=600):
     s = RE_MARCA.sub(' ', s or '')
@@ -125,7 +140,11 @@ def parsear(texto, fecha_bol):
             adentro_ = RE_MARCA.findall(bloque)
             pag_prev = int(previas_[-1]) if previas_ else 0
             bloque = FIN_AVISO.sub('\n', bloque)
-            if len(bloque) < 90 or not re.search(r'licitaci|concurso|compulsa|contrataci', bloque, re.I):
+            # OJO: algunos municipios abrevian ("Lic. Pca. N° 08/2026"). Sin esto
+            # el bloque se descartaba entero y se perdía la licitación.
+            if len(bloque) < 90 or not re.search(
+                    r'licitaci|concurso|compulsa|contrataci|remate|subasta|'
+                    r'lic\.?\s*(?:pca|p[uú]b|priv|pub)|\bl\.?\s*p\.?\s*n?[°º]', bloque, re.I):
                 continue
             # si el aviso cruza de página, vale la primera de las que abarca
             pagina = int(adentro_[0]) if adentro_ else pag_prev
@@ -163,7 +182,7 @@ def parsear(texto, fecha_bol):
             localidad = enc[0] if enc else ''
 
             mt = RE_TIPO_NUM.search(bloque)
-            tipo = limpiar(mt.group(1), 40).title() if mt else 'Licitación'
+            tipo = nombre_completo(limpiar(mt.group(1), 40)).title() if mt else 'Licitación'
             numero = re.sub(r'\s+', '', mt.group(2)) if (mt and mt.group(2)) else ''
 
             campos = {}
