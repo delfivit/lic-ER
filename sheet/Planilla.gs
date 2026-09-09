@@ -38,7 +38,9 @@ var MIAS = ['Seguimiento','Precio ofertado','Posición','Notas'];
 var AUTO2 = ['N°','Tipo','Valor pliego','Detalle apertura','Link','Pliego PDF','Fuente','Detectada','ID'];
 
 var COLS = AUTO.concat(MIAS).concat(AUTO2);
-var ESTADOS = ['', 'A revisar', 'Presentada', 'Descartada', 'Ganada', 'Perdida'];
+// Estados que vienen de fábrica. El equipo puede escribir otros: el desplegable
+// sugiere, no obliga.
+var ESTADOS = ['', 'A revisar', 'En preparación', 'Presentada', 'Descartada', 'Ganada', 'Perdida'];
 
 // del nombre de la columna del CSV al de la planilla
 var DESDE_CSV = {
@@ -195,6 +197,7 @@ function forzarTexto_(hoja, n) {
 
 function pintar_(hoja, n) {
   if (!n) return;
+  var coloresPropios = coloresDeSeguimiento_(hoja, n);
   var rango = hoja.getRange(2, 1, n, COLS.length);
   rango.setFontColor('#000000').setFontWeight('normal').setBackground('#ffffff')
        .setVerticalAlignment('top').setWrap(false);
@@ -206,12 +209,15 @@ function pintar_(hoja, n) {
   var rubros = hoja.getRange(2, cRubro, n, 1).getValues();
   var estados = hoja.getRange(2, cEstado, n, 1).getValues();
   var segs = hoja.getRange(2, cSeg, n, 1).getValues();
+  var fondoSegActual = hoja.getRange(2, cSeg, n, 1).getBackgrounds();
   var aperturas = hoja.getRange(2, cApert, n, 1).getValues();
 
   var colorRubro = {'Arquitectura':'#D9E1F2','Infraestructura':'#E2EFDA',
                     'Áridos':'#FCE4D6','Vehículos':'#FFF2CC','Materiales':'#E6D9F2'};
+  // Los colores que eligió el equipo mandan sobre los de fábrica.
   var colorSeg = {'Presentada':'#CFE2F3','Ganada':'#B7E1CD','Perdida':'#F4CCCC',
-                  'Descartada':'#EFEFEF','A revisar':'#FFF2CC'};
+                  'Descartada':'#EFEFEF','A revisar':'#FFF2CC','En preparación':'#FCE5CD'};
+  for (var e in coloresPropios) colorSeg[e] = coloresPropios[e];
 
   var bgR = [], bgE = [], bgS = [], fwE = [], bgA = [];
   var hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -220,7 +226,9 @@ function pintar_(hoja, n) {
     var est = estados[i][0];
     bgE.push([est === 'Vigente' ? '#D9EAD3' : (est === 'Vencida' ? '#F4CCCC' : '#FFF2CC')]);
     fwE.push([est === 'Vigente' ? 'bold' : 'normal']);
-    bgS.push([colorSeg[segs[i][0]] || '#ffffff']);
+    var seg = (segs[i][0] || '').toString().trim();
+    // si no conocemos el estado, dejamos la celda como está en vez de blanquearla
+    bgS.push([colorSeg[seg] || (seg ? (fondoSegActual[i] && fondoSegActual[i][0]) || '#ffffff' : '#ffffff')]);
     // apertura en rojo si es dentro de los próximos 7 días
     var f = aFecha_(aperturas[i][0]);
     var dias = f ? (f - hoy) / 86400000 : null;
@@ -232,9 +240,14 @@ function pintar_(hoja, n) {
   hoja.getRange(2, cApert, n, 1).setBackgrounds(bgA).setFontWeight('bold');
 
   // desplegable en Seguimiento
-  var val = SpreadsheetApp.newDataValidation().requireValueInList(ESTADOS, true)
-            .setAllowInvalid(false)
-            .setHelpText('Elegí: A revisar, Presentada, Descartada, Ganada o Perdida').build();
+  // La lista incluye los estados que el equipo haya inventado, y setAllowInvalid(true)
+  // permite escribir otros nuevos sin que falle la actualización.
+  var lista = ESTADOS.slice();
+  for (var e in coloresPropios) if (e && lista.indexOf(e) < 0) lista.push(e);
+  var val = SpreadsheetApp.newDataValidation().requireValueInList(lista, true)
+            .setAllowInvalid(true)
+            .setHelpText('Sugeridos: ' + lista.filter(String).join(', ') +
+                         '. Podés escribir otro y se agrega solo.').build();
   hoja.getRange(2, cSeg, Math.max(n, 200), 1).setDataValidation(val);
 
   // links clickeables
@@ -246,6 +259,29 @@ function pintar_(hoja, n) {
   var filtro = hoja.getFilter();
   if (filtro) filtro.remove();
   hoja.getRange(1, 1, n + 1, COLS.length).createFilter();
+}
+
+/**
+ * Mira la columna Seguimiento y aprende con qué color pintó el equipo cada
+ * estado, para respetarlo en las próximas actualizaciones.
+ */
+var _coloresSeg = {};      // estado -> color, aprendido de lo que pintó el equipo
+
+function coloresDeSeguimiento_(hoja, n) {
+  var c = COLS.indexOf('Seguimiento') + 1;
+  var mapa = {};
+  try {
+    var vals = hoja.getRange(2, c, n, 1).getValues();
+    var fondos = hoja.getRange(2, c, n, 1).getBackgrounds();
+    for (var i = 0; i < n; i++) {
+      var e = (vals[i][0] || '').toString().trim();
+      var f = (fondos[i][0] || '').toLowerCase();
+      if (!e || !f || f === '#ffffff' || f === 'white') continue;
+      if (!mapa[e]) mapa[e] = fondos[i][0];        // vale el primero que aparezca
+    }
+  } catch (err) { /* hoja nueva o sin datos */ }
+  _coloresSeg = mapa;
+  return mapa;
 }
 
 function linkear_(hoja, n, columna, texto) {
@@ -356,8 +392,10 @@ function armarResumen_(ss, filas, estadoFuentes) {
   // --- cómo venimos
   titulo('CÓMO VENIMOS', '#1E7B4F');
   encabezado(['Estado', 'Cantidad']);
+  // Los colores que eligió el equipo mandan sobre los de fábrica.
   var colorSeg = {'Presentada':'#CFE2F3','Ganada':'#B7E1CD','Perdida':'#F4CCCC',
-                  'Descartada':'#EFEFEF','A revisar':'#FFF2CC'};
+                  'Descartada':'#EFEFEF','A revisar':'#FFF2CC','En preparación':'#FCE5CD'};
+  for (var e in _coloresSeg) colorSeg[e] = _coloresSeg[e];
   var hayAlguno = false;
   ['A revisar', 'Presentada', 'Ganada', 'Perdida', 'Descartada'].forEach(function (e) {
     if (!porSeg[e]) return;
@@ -590,7 +628,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v6 · 09/09/2026';
+var VERSION = 'v7 · 09/09/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
