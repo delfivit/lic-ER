@@ -73,13 +73,31 @@ def bajar(d, sesion, forzar=False):
 # --------------------------------------------------------------- parseo
 FIN_AVISO = re.compile(r'\s*-{2,}(?:\s*-{2,})+\s*')          # " -- -- -- "
 ID_AVISO  = re.compile(r'ID:\s*(\d+)\s*-\s*([A-Z.\-\d]+)')
+# Dónde termina un campo. Además de los rótulos EN MAYÚSCULAS con dos puntos,
+# muchos avisos siguen con "Apertura de Sobres 17/09/2026" o "El pliego será
+# gratuito", en minúscula y sin dos puntos: sin contemplarlos, el objeto se
+# llevaba el aviso entero hasta el ID.
+CORTE = (r'(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:'
+         r'|\s*[-–—]?\s*(?:Apertura|Fecha\s+de\s+[Aa]pertura|Presupuesto|Consultas?|'
+         r'Informes?|Lugar|Plazo|Garant[ií]a|Retiro|Aprobada\s+por|Expediente|Decreto|'
+         r'Valor\s+del?\s+[Pp]liego|Costo\s+del?\s+[Pp]liego)\b'
+         r'|\s*(?:El|Los|La|Las)\s+[Pp]liegos?\b'
+         r'|\s*ID\s*:\s*\d'
+         r'|\Z)')
+
 CAMPOS = {
-    'objeto':   r'(?:OBJETO|Objeto|OBRA|Obra)\s*:\s*(.+?)(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:|\Z)',
-    'apertura': r'(?:APERTURA(?:\s+DE\s+(?:SOBRES|OFERTAS))?|Apertura(?:\s+de\s+Sobres)?)\s*:?\s*(.+?)(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:|\Z)',
-    'venta':    r'(?:VENTA\s+DE\s+PLIEGOS?|ADQUISICI[OÓ]N\s+DE\s+PLIEGOS?|RETIRO\s+DE\s+PLIEGOS?)\s*:?\s*(.+?)(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:|\Z)',
+    'objeto':   r'(?:OBJETO|Objeto|OBRA|Obra)\s*:\s*(.+?)' + CORTE,
+    'apertura': (r'(?:APERTURA(?:\s+DE\s+(?:SOBRES|OFERTAS))?|Apertura(?:\s+de\s+(?:Sobres|Ofertas))?)'
+                 r'\s*:?\s*(.+?)'
+                 r'(?=\n\s*[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚ \.]{3,}\s*:'
+                 r'|\s*(?:El|Los|La|Las)\s+[Pp]liegos?\b|\s*ID\s*:\s*\d|\Z)'),
+    'venta':    r'(?:VENTA\s+DE\s+PLIEGOS?|ADQUISICI[OÓ]N\s+DE\s+PLIEGOS?|RETIRO\s+DE\s+PLIEGOS?)\s*:?\s*(.+?)' + CORTE,
     'valor':    r'(?:VALOR\s+DE\s*L?\s+PLIEGOS?|PRECIO\s+DE\s*L?\s+PLIEGOS?|'
                 r'COSTO\s+DE\s*L?\s+PLIEGOS?|ARANCEL)\s*:?\s*(.+?)(?=\n|\Z)',
     'presup':   r'PRESUPUESTO\s+OFICIAL\s*:?\s*(.+?)(?=\n|\Z)',
+    # "El pliego será Gratuito", "sin costo", "sin cargo": también es el valor
+    'gratis':   r'(?:El|Los)\s+[Pp]liegos?\s+(?:ser[áa]n?|es|son)\s+'
+                r'(gratuitos?|sin\s+costo|sin\s+cargo)',
 }
 RE_TIPO_NUM = re.compile(
     r'(Licitaci[oó]n\s+P[uú]blica|Licitaci[oó]n\s+Privada|Licitaci[oó]n|'
@@ -189,6 +207,8 @@ def parsear(texto, fecha_bol):
             for k, pat in CAMPOS.items():
                 m = re.search(pat, bloque, re.S)
                 campos[k] = limpiar(m.group(1)) if m else ''
+            if not campos['valor'] and campos.get('gratis'):
+                campos['valor'] = campos['gratis'].capitalize()
             # si el "objeto" arrancó con otro rótulo (LUGAR DE APERTURA:, DESTINO:...)
             # entonces el campo se leyó mal y conviene descartarlo
             if re.match(r'(?:LUGAR|DESTINO|APERTURA|VENTA|VALOR|PRESUPUESTO|CONSULTA|PLAZO)\b',
@@ -218,6 +238,7 @@ def parsear(texto, fecha_bol):
                 aviso_id=mid.group(1) if mid else '',
                 fecha_boletin=fecha_bol, url=url_boletin(fecha_bol),
                 pagina=pagina,
+                texto_aviso=bloque[:2000],      # para buscar la web del organismo
                 # #page=N hace que el visor abra directamente en el aviso
                 url_pagina=url_boletin(fecha_bol) + (('#page=%d' % pagina) if pagina else ''),
             ))

@@ -589,8 +589,9 @@ def p_boletin(red, url, nombre):
             venta=f_venta,
             valor_pliego=a['valor_pliego'][:70] if a['valor_pliego'] else '',
             link=a.get('url_pagina') or a['url'],      # abre en la página del aviso
-            pdf=a.get('url_pagina') or a['url'],
+            pdf='',                                    # se completa si se encuentra el pliego
             uid=f"BO|{a['aviso_id']}" if a['aviso_id'] else f"BO|{a['organismo']}|{a['numero']}|{a['objeto'][:60]}",
+            sitio=sitio_del_aviso(a.get('texto_aviso', '')),
             extra=' · '.join(detalle),
         ))
     return out
@@ -635,6 +636,76 @@ def p_cafesg(red, url, nombre):
 
 PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'cafesg': p_cafesg, 'minplan': p_minplan, 'iapv': p_iapv,
            'enersa': p_enersa, 'wpjson': p_wpjson, 'generico': p_generico}
+# ------------------------------------------------ buscar el pliego en el sitio
+# Los avisos del Boletín dicen "se podrá descargar en https://www.segui.gob.ar"
+# pero no el enlace al PDF. Entrando a ese sitio se lo encuentra por el número.
+_PLIEGOS_CACHE = {}
+
+def pdfs_del_sitio(sitio, sesion):
+    """Lista los PDF de un sitio. Se visita una sola vez por corrida."""
+    clave = sitio.rstrip('/')
+    if clave in _PLIEGOS_CACHE:
+        return _PLIEGOS_CACHE[clave]
+    encontrados = []
+    try:
+        r = sesion.get(sitio, timeout=(10, 25))
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'lxml')
+            base = re.match(r'^https?://[^/]+', sitio).group(0)
+            for a in soup.find_all('a', href=True):
+                h = a['href']
+                if not re.search(r'\.pdf(\?|$)', h, re.I):
+                    continue
+                encontrados.append(h if h.startswith('http') else
+                                   base + (h if h.startswith('/') else '/' + h))
+    except Exception:
+        pass
+    _PLIEGOS_CACHE[clave] = encontrados
+    return encontrados
+
+def variantes_de_numero(numero):
+    """'08/2026' puede aparecer como 08-2026, 8-2026, 08_2026, N°-08-2026..."""
+    m = re.match(r'\s*(\d+)\s*[-/]\s*(\d{2,4})\s*$', str(numero or ''))
+    if not m:
+        return []
+    n, a = m.group(1), m.group(2)
+    ns = {n, n.lstrip('0') or n, n.zfill(2)}
+    años = {a, a[-2:], ('20' + a) if len(a) == 2 else a}
+    out = set()
+    for x in ns:
+        for y in años:
+            for sep in ('-', '_', '/', ''):
+                out.add(f'{x}{sep}{y}')
+    return [v for v in out if len(v) >= 3]
+
+def buscar_pliego(sitio, numero, sesion):
+    """Devuelve el PDF del pliego dentro del sitio del organismo, o ''."""
+    vs = variantes_de_numero(numero)
+    if not sitio or not vs:
+        return ''
+    for url in pdfs_del_sitio(sitio, sesion):
+        nombre = sin_acentos(url.split('/')[-1].lower()).replace('%20', '')
+        if not re.search(r'plieg|licitac|bases', nombre):
+            continue
+        for v in vs:
+            if v.lower() in nombre:
+                return url
+    return ''
+
+RE_SITIO = re.compile(r'https?://[^\s<>"\)]+|www\.[a-z0-9.-]+\.(?:gob|gov|com)\.ar', re.I)
+
+def sitio_del_aviso(texto):
+    """Saca la web del organismo mencionada en el aviso."""
+    for u in RE_SITIO.findall(texto or ''):
+        u = u.rstrip('.,;)')
+        if re.search(r'entrerios\.gov\.ar/boletin|boletinoficial', u, re.I):
+            continue                       # el propio boletín no sirve
+        if not u.startswith('http'):
+            u = 'https://' + u
+        return u
+    return ''
+
+
 # ---------------------------------------------------------------- salida
 COLS = ['Detectada','Estado','Rubro','Organismo','Tipo','N°','Objeto',
         'Apertura','Detalle apertura','Venta hasta','Valor pliego',
@@ -844,11 +915,18 @@ def main():
         relev.append(it)
 
     # armar filas + dedup por ID
-    filas, nuevas = [], []
+    filas, nuevas, buscados = [], [], 0
     for it in relev:
         _id = uid_hash(it.get('uid') or f'{it["fuente"]}|{it.get("numero","")}|{it.get("objeto","")}')
         est = estado_de(it.get('fecha'))
         if est == 'Vencida' and not args.todo: continue
+        # Si sigue abierta y no tenemos el pliego, lo buscamos en la web del
+        # organismo: el Boletín menciona el sitio pero no el enlace al PDF.
+        if est == 'Vigente' and not it.get('pdf') and it.get('sitio') and buscados < 30:
+            hallado = buscar_pliego(it['sitio'], it.get('numero'), red.s)
+            buscados += 1
+            if hallado:
+                it['pdf'] = hallado
         fila = {
             'Detectada': vistos.get(_id, HOY.strftime('%d/%m/%Y')),
             'Estado': est, 'Rubro': it['rubro'], 'Organismo': it.get('organismo', ''),
@@ -858,7 +936,9 @@ def main():
             'Detalle apertura': limpiar_apertura(it.get('apertura_txt', '')),
             'Venta hasta': it.get('venta') or 'Ver pliego',
             'Valor pliego': it.get('valor_pliego') or '',
-            'Link': it.get('link', ''), 'Pliego PDF': it.get('pdf', ''),
+            'Link': it.get('link', ''),
+            # el pliego propio si se encontró; si no, el boletín donde está el aviso
+            'Pliego PDF': it.get('pdf') or it.get('link', ''),
             'Fuente': it['fuente'], 'ID': _id,
         }
         # dedup dentro de la misma corrida
