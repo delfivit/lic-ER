@@ -40,16 +40,16 @@
   "id-22f9c51cdaebefb7": "09/09/2026",
   "id-46d81e3efd2ae483": "09/09/2026"
  },
- "ultima_corrida": "2026-09-09T07:52:10",
+ "ultima_corrida": "2026-09-09T08:02:28",
  "ceros": {
   "Boletín Oficial de Entre Ríos": 0,
-  "Municipalidad de Paraná": 0,
-  "Min. Planeamiento (provincia)": 0,
-  "IAPV — Viviendas": 0,
-  "Vialidad Entre Ríos (DPV)": 0,
-  "Túnel Subfluvial": 0,
-  "ENERSA": 0,
-  "Municipalidad de Federación": 0,
-  "Municipalidad de Diamante": 0
+  "Municipalidad de Paraná": 1,
+  "Min. Planeamiento (provincia)": 1,
+  "IAPV — Viviendas": 1,
+  "Vialidad Entre Ríos (DPV)": 1,
+  "Túnel Subfluvial": 1,
+  "ENERSA": 1,
+  "Municipalidad de Federación": 1,
+  "Municipalidad de Diamante": 1
  }
 }
