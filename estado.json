@@ -2,9 +2,10 @@
  "vistos": {
   "id-75a5c9dd5b4aa6f3": "09/09/2026",
   "id-bc610b64999d147d": "09/09/2026",
-  "id-74dfdad7e5f9d048": "09/09/2026",
   "id-b7b0120caf49d551": "09/09/2026",
   "id-85e6cfd11c8a8889": "09/09/2026",
+  "id-28313c7a9524d0ee": "09/09/2026",
+  "id-74dfdad7e5f9d048": "09/09/2026",
   "id-0132097e777a3442": "09/09/2026",
   "id-9dbdaa6090d92bd4": "09/09/2026",
   "id-90c3d1f38f49418a": "09/09/2026",
@@ -38,18 +39,28 @@
   "id-9a16884dd5a64a49": "09/09/2026",
   "id-f53eab44dba8d43f": "09/09/2026",
   "id-22f9c51cdaebefb7": "09/09/2026",
-  "id-46d81e3efd2ae483": "09/09/2026"
+  "id-46d81e3efd2ae483": "09/09/2026",
+  "id-bdd0abb0374c3f42": "09/09/2026",
+  "id-42c411be9946d956": "09/09/2026",
+  "id-023b6b75e7014a9c": "09/09/2026"
  },
- "ultima_corrida": "2026-09-09T08:02:28",
+ "ultima_corrida": "2026-09-09T08:30:33",
  "ceros": {
   "Boletín Oficial de Entre Ríos": 0,
-  "Municipalidad de Paraná": 1,
-  "Min. Planeamiento (provincia)": 1,
-  "IAPV — Viviendas": 1,
-  "Vialidad Entre Ríos (DPV)": 1,
-  "Túnel Subfluvial": 1,
-  "ENERSA": 1,
-  "Municipalidad de Federación": 1,
-  "Municipalidad de Diamante": 1
+  "Municipalidad de Paraná": 0,
+  "Min. Planeamiento (provincia)": 0,
+  "IAPV — Viviendas": 0,
+  "Vialidad Entre Ríos (DPV)": 0,
+  "Túnel Subfluvial": 0,
+  "ENERSA": 0,
+  "Municipalidad de Crespo": 0,
+  "Municipalidad de Federación": 0,
+  "Municipalidad de Diamante": 0,
+  "Municipalidad de Oro Verde": 2,
+  "CAFESG (Salto Grande)": 0,
+  "Municipalidad de San Benito": 0,
+  "Municipalidad de Aldea Brasilera": 2,
+  "Poder Judicial de Entre Ríos": 2,
+  "IAPSER Seguros": 0
  }
 }

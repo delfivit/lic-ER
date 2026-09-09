@@ -577,6 +577,41 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
+var VERSION = 'v5 · 09/09/2026';
+
+/**
+ * Revisa si la planilla puede leer los datos y muestra el resultado.
+ * Sirve para saber si algo falla y qué exactamente.
+ */
+function probarConexion() {
+  var lineas = ['VERSIÓN DEL SCRIPT: ' + VERSION, ''];
+  function probar(nombre, url, headers) {
+    try {
+      var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: headers || {} });
+      var code = r.getResponseCode();
+      var txt = code === 200 ? r.getContentText() : '';
+      var filas = txt ? Utilities.parseCsv(txt).length - 1 : 0;
+      lineas.push((code === 200 ? '✓ ' : '✗ ') + nombre + ': HTTP ' + code +
+                  (code === 200 ? '  (' + filas + ' filas)' : ''));
+      return filas;
+    } catch (e) {
+      lineas.push('✗ ' + nombre + ': ' + e);
+      return 0;
+    }
+  }
+  var lic  = probar('Listado de licitaciones', CFG.CSV + '?t=' + Date.now());
+  if (!lic) probar('  ...respaldo por la API', CFG.CSV_RESPALDO, { 'Accept': 'application/vnd.github.raw' });
+  var diag = probar('Estado de las fuentes',  CFG.DIAG + '?t=' + Date.now());
+  if (!diag) probar('  ...respaldo por la API', CFG.DIAG_RESPALDO, { 'Accept': 'application/vnd.github.raw' });
+
+  lineas.push('');
+  if (lic && diag) lineas.push('TODO BIEN. Usá "Actualizar ahora" y las fuentes se van a pintar.');
+  else if (lic && !diag) lineas.push('Se leen las licitaciones pero NO el estado de las fuentes:\npor eso quedan en gris. Avisale a Claude.');
+  else lineas.push('No se puede leer nada. Puede ser un corte momentáneo:\nprobá de nuevo en unos minutos.');
+
+  SpreadsheetApp.getUi().alert('Prueba de conexión', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
 function irAFuentes() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(CFG.FUENTES);
@@ -589,6 +624,7 @@ function onOpen() {
     .addItem('Actualizar ahora', 'actualizar')
     .addSeparator()
     .addItem('Revisar estado de las fuentes', 'irAFuentes')
+    .addItem('Probar conexión (si algo no anda)', 'probarConexion')
     .addSeparator()
     .addItem('Borrar hojas viejas', 'limpiarHojasViejas')
     .addItem('Instalar / reinstalar automático', 'instalarTodo')

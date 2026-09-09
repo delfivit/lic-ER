@@ -484,7 +484,45 @@ def p_boletin(red, url, nombre):
         ))
     return out
 
-PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'minplan': p_minplan, 'iapv': p_iapv,
+def p_cafesg(red, url, nombre):
+    """CAFESG (Fondo Especial de Salto Grande): hace obra escolar y de salud en
+    la región de Concordia. Cada llamado tiene su página y el listado indica el
+    estado, así que se puede saber cuáles siguen abiertos. Publica también
+    licitaciones PRIVADAS, que no siempre salen en el Boletín."""
+    html = red.get(url, nombre)
+    if not html: return []
+    soup = BeautifulSoup(html, 'lxml')
+    origin = re.match(r'^https?://[^/]+', url).group(0)
+    ESTADOS = ('Pendiente', 'En evaluación', 'En evaluacion', 'Adjudicada',
+               'Finalizada', 'Desierta', 'En ejecución', 'En ejecucion', 'Prorrogada')
+    ABIERTAS = ('Pendiente', 'Prorrogada')          # las únicas a las que todavía se puede ir
+    out, visto = [], set()
+    for a in soup.find_all('a', href=re.compile(r'/licitacion/')):
+        href = a['href']
+        if href in visto: continue
+        txt = norm(a.get_text(' '))
+        if len(txt) < 25: continue
+        m = re.match(r'\s*(licitaci[oó]n\s+p[uú]blica|licitaci[oó]n\s+privada|licitaci[oó]n|'
+                     r'concurso\s+de\s+precios|contrataci[oó]n\s+directa[^N]*?)\s*'
+                     r'N[°ºo\.]*\s*([\dA-Z]+\s*[-/]\s*\d{2,4}[^A-Z]*?)\s*'
+                     r'(' + '|'.join(ESTADOS) + r')\s+(.+)$', txt, re.I)
+        if not m: continue
+        visto.add(href)
+        tipo, numero, estado, objeto = (norm(m.group(1)).title(), norm(m.group(2)),
+                                        norm(m.group(3)), norm(m.group(4)))
+        numero = re.sub(r'[\s–—]+$', '', numero).replace(' ', '')
+        if estado not in ABIERTAS:
+            continue                                 # ya cerró: no interesa
+        out.append(dict(
+            fuente=nombre, organismo='CAFESG (Salto Grande)', tipo=tipo,
+            numero=numero, objeto=objeto,
+            apertura_txt='Ver pliego — figura como ' + estado, fecha=None,
+            link=href if href.startswith('http') else origin + href,
+            pdf='', uid=href if href.startswith('http') else origin + href))
+    return out
+
+
+PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'cafesg': p_cafesg, 'minplan': p_minplan, 'iapv': p_iapv,
            'enersa': p_enersa, 'wpjson': p_wpjson, 'generico': p_generico}
 # ---------------------------------------------------------------- salida
 COLS = ['Detectada','Estado','Rubro','Organismo','Tipo','N°','Objeto',

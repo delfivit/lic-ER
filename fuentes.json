@@ -51,11 +51,11 @@
    "nota": "Sin fecha en el listado"
   },
   {
-   "activa": false,
+   "activa": true,
    "nombre": "Municipalidad de Crespo",
-   "url": "https://www.crespo.gob.ar/licitaciones",
+   "url": "https://www.crespo.gob.ar/licitaciones-publicas-2026/",
    "parser": "generico",
-   "nota": "APAGADA: la página quedó en 2016, sin llamados actuales"
+   "nota": "URL correcta pasada por el ingeniero (la anterior mostraba 2016)."
   },
   {
    "activa": false,
@@ -78,11 +78,11 @@
    "nota": "Tiene una subpágina por año"
   },
   {
-   "activa": false,
+   "activa": true,
    "nombre": "Municipalidad de Oro Verde",
-   "url": "https://www.oroverde.gob.ar/",
+   "url": "https://oroverde.gob.ar/portal/secciones/licitaciones/",
    "parser": "generico",
-   "nota": "APAGADA: la conexión se cuelga (930s en la prueba)"
+   "nota": "URL correcta pasada por el ingeniero (la anterior se colgaba)."
   },
   {
    "activa": false,
@@ -132,6 +132,41 @@
    "url": "https://www.iosper.gov.ar/",
    "parser": "generico",
    "nota": "Es la obra social (prótesis, insumos médicos). No es tu rubro. OJO: Obras Sanitarias (OSER) sí llega por Min. Planeamiento."
+  },
+  {
+   "activa": true,
+   "nombre": "CAFESG (Salto Grande)",
+   "url": "https://cafesg.gob.ar/cafesg2/licitaciones/",
+   "parser": "cafesg",
+   "nota": "Obra escolar y de salud en la región de Concordia. Publica también licitaciones PRIVADAS que no salen en el Boletín."
+  },
+  {
+   "activa": true,
+   "nombre": "Municipalidad de San Benito",
+   "url": "https://sanbenito.gob.ar/transparencia/contabilidad/licitaciones",
+   "parser": "generico",
+   "nota": "Pasada por el ingeniero."
+  },
+  {
+   "activa": true,
+   "nombre": "Municipalidad de Aldea Brasilera",
+   "url": "https://aldeabrasilera.gob.ar/transparencia",
+   "parser": "generico",
+   "nota": "Pasada por el ingeniero."
+  },
+  {
+   "activa": true,
+   "nombre": "Poder Judicial de Entre Ríos",
+   "url": "https://www.jusentrerios.gov.ar/contrataciones/1",
+   "parser": "generico",
+   "nota": "Pasada por el ingeniero. Compras y suministros del Poder Judicial."
+  },
+  {
+   "activa": true,
+   "nombre": "IAPSER Seguros",
+   "url": "https://iapserseguros.seg.ar/proveedores/",
+   "parser": "generico",
+   "nota": "Pasada por el ingeniero. Mayormente seguros: el filtro de rubro descarta lo que no sirve."
   }
  ]
 }
