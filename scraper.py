@@ -406,10 +406,14 @@ def datos_de_texto_aviso(texto):
     if m:
         f = parse_fecha(m.group(1))
         if f: out['apertura'] = f
-    m = re.search(r'VALOR\s+DEL?\s+PLIEGO\s*:?\s*([^\n]{3,50})', t, re.I)
-    if m: out['valor'] = norm(m.group(1))[:50]
-    m = re.search(r'PRESUPUESTO\s+OFICIAL\s*:?\s*([^\n]{3,60})', t, re.I)
-    if m: out['presupuesto'] = norm(m.group(1))[:60]
+    # cortar en el próximo rótulo: si no, el importe se lleva "CUENTA DE
+    # DEPÓSITO: NBersa CC..." y demás texto del aviso
+    CORTE = (r'(?=\s*(?:CUENTA|DEP[OÓ]SITO|PLAZO|APERTURA|VALOR|CONSULTAS|LUGAR|'
+             r'GARANT[IÍ]A|PRESUPUESTO|OBRA|DEPARTAMENTO|PLIEGO|CUIT|CBU)\b|$)')
+    m = re.search(r'VALOR\s+DEL?\s+PLIEGO\s*:?\s*(.{3,60}?)' + CORTE, t, re.I)
+    if m: out['valor'] = norm(m.group(1)).strip(' .-')[:50]
+    m = re.search(r'PRESUPUESTO\s+OFICIAL\s*:?\s*(.{3,70}?)' + CORTE, t, re.I)
+    if m: out['presupuesto'] = norm(m.group(1)).strip(' .-')[:60]
     v = venta_pliego(t)
     if v: out['venta'] = v
     return out
