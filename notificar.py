@@ -57,13 +57,13 @@ def mail_html(nuevas, cols, total_vigentes, alertas):
             f'<td {td}>{" · ".join(links)}</td></tr>')
     cabecera = ''.join(f'<th style="padding:6px 9px;text-align:left">{c}</th>' for c in
                        ('Rubro','Organismo','N°','Objeto','Apertura','Venta hasta','Valor pliego',''))
-    cuerpo = (f'<p style="font-family:Arial">Hola Delfi, hay <b>{len(nuevas)}</b> '
+    cuerpo = (f'<p style="font-family:Arial">Hola, hay <b>{len(nuevas)}</b> '
               f'licitación(es) nueva(s) de tu interés en Entre Ríos '
               f'(de {total_vigentes} vigentes en total):</p>'
               f'<table style="border-collapse:collapse;font-family:Arial">'
               f'<tr style="background:#1F3A5F;color:#fff">{cabecera}</tr>{filas}</table>'
               ) if nuevas else (
-              f'<p style="font-family:Arial">Hola Delfi, hoy no hubo licitaciones nuevas. '
+              f'<p style="font-family:Arial">Hola, hoy no hubo licitaciones nuevas. '
               f'Seguís con <b>{total_vigentes}</b> vigentes.</p>')
     if alertas:
         cuerpo += ('<p style="margin-top:16px;padding:10px;background:#FCE4E4;'

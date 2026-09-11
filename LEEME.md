@@ -1,4 +1,4 @@
-# Licitaciones Entre Ríos — Granss SRL
+# Licitaciones Entre Ríos
 
 Busca licitaciones de obra pública en Entre Ríos y se queda solo con tus rubros:
 **Arquitectura · Infraestructura · Áridos · Vehículos**.

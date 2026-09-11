@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LICITACIONES ENTRE RÍOS — scraper para Granss SRL
+LICITACIONES ENTRE RÍOS — scraper
 Rubros: Arquitectura · Infraestructura · Áridos · Vehículos
 
 Uso:
@@ -152,9 +152,42 @@ def es_ruido(texto):
     t = sin_acentos((texto or '').lower())
     return any(k in t for k in RUIDO)
 
+# Lo que define el rubro no es sólo la palabra, es QUÉ se contrata:
+#   comprar materiales para una obra  -> Materiales
+#   ejecutar la obra                  -> Infraestructura / Arquitectura
+# Sin esto, "ADQUISICIÓN DE MATERIALES PARA EL PLAN DE PAVIMENTACIÓN" caía en
+# Infraestructura por la palabra "pavimentación".
+VERBO_COMPRA = re.compile(
+    r'\b(adquisicion|adquirir|provision|proveer|compra|comprar|suministro|'
+    r'abastecimiento|transporte|venta\s+de\s+materiales)\b')
+VERBO_OBRA = re.compile(
+    r'\b(construccion|construir|ejecucion|ejecutar|refaccion|refuncionalizacion|'
+    r'remodelacion|ampliacion|reparacion|reacondicionamiento|restauracion|'
+    r'repavimentacion|pavimentacion\s+de|bacheo|terminacion|mano\s+de\s+obra|'
+    r'puesta\s+en\s+valor|mejoras|readecuacion|perforacion)\b')
+
 def clasificar(texto):
     t = sin_acentos((texto or '').lower())
+    compra = bool(VERBO_COMPRA.search(t))
+    obra = bool(VERBO_OBRA.search(t))
+
+    # Vehículos y Áridos mandan siempre: son inconfundibles
     for rubro, claves in RUBROS:
+        if rubro not in ('Vehículos', 'Áridos'):
+            continue
+        if any(k in t for k in claves):
+            return rubro
+
+    materiales = dict(RUBROS).get('Materiales', [])
+    hay_material = any(k in t for k in materiales)
+
+    # Si se COMPRAN materiales, es Materiales aunque el destino sea una obra
+    if hay_material and compra and not obra:
+        return 'Materiales'
+
+    for rubro, claves in RUBROS:
+        if rubro in ('Vehículos', 'Áridos'):
+            continue
         if any(k in t for k in claves):
             return rubro
     return None
@@ -903,6 +936,51 @@ def escribir_diagnostico(red, fuentes, estado_previo):
     return alertas
 
 
+def clave_de_obra(fila):
+    """Identifica una licitación sin depender de la fuente: número + objeto."""
+    num = re.sub(r'[^0-9]', '', str(fila.get('N°') or ''))          # 09/2026 = 09-2026
+    obj = sin_acentos(str(fila.get('Objeto') or '').lower())
+    obj = re.sub(r'[^a-z0-9 ]+', ' ', obj)
+    obj = ' '.join(obj.split())[:60]
+    return (num, obj)
+
+
+def fusionar_repetidas(filas):
+    """Junta las filas que son la misma licitación llegada por fuentes distintas.
+    Gana la que tiene más datos; se conservan la fecha, el pliego y el valor de
+    cualquiera de las dos."""
+    porClave, orden = {}, []
+    def riqueza(f):
+        return sum(1 for c in ('Apertura', 'Venta hasta', 'Valor pliego', 'Pliego PDF', 'N°')
+                   if str(f.get(c) or '').strip() and f.get(c) != 'Ver pliego')
+    fusionadas = 0
+    for f in filas:
+        num, obj = clave_de_obra(f)
+        if not obj or len(obj) < 18:
+            orden.append(f); continue              # objeto muy corto: no arriesgamos
+        k = (num, obj[:45])
+        if k not in porClave:
+            porClave[k] = f; orden.append(f); continue
+        base = porClave[k]
+        fusionadas += 1
+        mejor, otra = (f, base) if riqueza(f) > riqueza(base) else (base, f)
+        for c in ('Apertura', 'Venta hasta', 'Valor pliego', 'Pliego PDF', 'N°', 'Detalle apertura'):
+            if (not str(mejor.get(c) or '').strip() or mejor.get(c) == 'Ver pliego') \
+               and str(otra.get(c) or '').strip():
+                mejor[c] = otra[c]
+        fuentes = {str(base.get('Fuente') or ''), str(f.get('Fuente') or '')}
+        mejor['Fuente'] = ' + '.join(sorted(x for x in fuentes if x))[:60]
+        if mejor is not base:                       # reemplazar en el orden original
+            orden[orden.index(base)] = mejor
+            porClave[k] = mejor
+    vistos = set()
+    limpio = []
+    for f in orden:
+        if id(f) in vistos: continue
+        vistos.add(id(f)); limpio.append(f)
+    return limpio, fusionadas
+
+
 def leer_csv_previo(ruta=None):
     """Lee el CSV de la corrida anterior. Sirve para no perder las licitaciones
     de una fuente que hoy falló (típicamente Paraná cuando corre en la nube)."""
@@ -1063,6 +1141,13 @@ def main():
             filas += rescatadas
             print(f'\n  Se conservaron {len(rescatadas)} licitación(es) de '
                   f'{len(fallaron)} fuente(s) que hoy fallaron: {", ".join(sorted(fallaron))[:70]}')
+
+    # Una misma licitación suele llegar por dos fuentes (el Boletín la publica y
+    # además está en la web del organismo). Se fusionan quedándose con la fila
+    # más completa y anotando de dónde vino cada dato.
+    filas, fusionadas = fusionar_repetidas(filas)
+    if fusionadas:
+        print(f'  Se unificaron {fusionadas} licitación(es) que llegaban por más de una fuente')
 
     xlsx = BASE / 'Licitaciones-Entre-Rios.xlsx'
     escribir_excel(filas, xlsx)

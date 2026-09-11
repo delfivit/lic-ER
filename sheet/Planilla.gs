@@ -1,5 +1,5 @@
 /*************************************************************************
- *  LICITACIONES ENTRE RÍOS — Granss SRL
+ *  LICITACIONES ENTRE RÍOS
  *  Script de la PLANILLA (no scrapea: eso lo hace GitHub todos los días)
  *
  *  Qué hace:
@@ -46,10 +46,13 @@ var ESTADOS_COLOR = [
   { estado: 'A revisar',      fondo: '#FFE599', letra: '#000000' },
   { estado: 'Presentada',     fondo: '#D9EAD3', letra: '#000000' },
   { estado: 'Descartada',     fondo: '#EFEFEF', letra: '#666666' },
+  { estado: 'Duplicada',      fondo: '#E0E0E0', letra: '#999999' },
   { estado: 'Ganada',         fondo: '#38761D', letra: '#FFFFFF' },
   { estado: 'Perdida',        fondo: '#A61C00', letra: '#FFFFFF' }
 ];
 var ESTADOS = [''].concat(ESTADOS_COLOR.map(function (e) { return e.estado; }));
+// Marcadas así, la licitación se va al final y no cuenta en el Resumen.
+var ESTADOS_OCULTOS = ['Descartada', 'Duplicada'];
 
 // del nombre de la columna del CSV al de la planilla
 var DESDE_CSV = {
@@ -102,8 +105,12 @@ function actualizar() {
     salida.push(fila);
   }
 
-  // 3) Ordenar: primero lo que abre antes; lo que no tiene fecha, al final
+  // 3) Ordenar: lo descartado o duplicado al fondo; después, lo que abre antes
+  var iSeg2 = COLS.indexOf('Seguimiento');
   salida.sort(function (a, b) {
+    var oa = ESTADOS_OCULTOS.indexOf((a[iSeg2] || '').toString().trim()) >= 0 ? 1 : 0;
+    var ob = ESTADOS_OCULTOS.indexOf((b[iSeg2] || '').toString().trim()) >= 0 ? 1 : 0;
+    if (oa !== ob) return oa - ob;
     var fa = aFecha_(a[COLS.indexOf('Apertura')]), fb = aFecha_(b[COLS.indexOf('Apertura')]);
     if (fa && fb) return fa - fb;
     if (fa) return -1;
@@ -362,10 +369,13 @@ function armarResumen_(ss, filas, estadoFuentes) {
     var seg = (f[iSeg] || '').toString().trim();
     if (seg) porSeg[seg] = (porSeg[seg] || 0) + 1;
     if (f[iEst] !== 'Vigente') continue;
+    if (ESTADOS_OCULTOS.indexOf(seg) >= 0) continue;     // descartada/duplicada: no cuenta
     vig.push(f);
     porRubro[f[iRub]] = (porRubro[f[iRub]] || 0) + 1;
     var v = (f[iVenta] || '').toString();
     if (v && v !== 'Ver pliego') conFechaPliego++;
+    // las descartadas y las duplicadas no van a "próximas"
+    if (ESTADOS_OCULTOS.indexOf(seg) >= 0) continue;
     var fa = aFecha_(f[iAp]);
     if (fa) {
       var dias = Math.round((fa - hoy) / 86400000);
@@ -387,7 +397,7 @@ function armarResumen_(ss, filas, estadoFuentes) {
     fila++;
   }
 
-  titulo('LICITACIONES ENTRE RÍOS — Granss SRL');
+  titulo('LICITACIONES ENTRE RÍOS');
   if (estadoFuentes && estadoFuentes.conError) {
     sh.getRange(fila - 1, 1, 1, 6).merge()
       .setValue('⚠️  ' + estadoFuentes.conError + ' fuente(s) NO se pudieron revisar. ' +
@@ -462,14 +472,17 @@ function armarResumen_(ss, filas, estadoFuentes) {
       .setFontColor('#888888').setFontStyle('italic');
     fila++;
   } else {
-    encabezado(['Faltan', 'Apertura', 'Venta pliego', 'Rubro', 'Organismo', 'Objeto']);
+    encabezado(['Faltan', 'Apertura', 'Seguimiento', 'Rubro', 'Organismo', 'Objeto']);
     prox.forEach(function (p) {
       var d = p[0], f = p[1];
+      var seguimiento = (f[iSeg] || '').toString().trim();
       sh.getRange(fila, 1, 1, 6).setValues([[
         d === 0 ? '¡HOY!' : (d === 1 ? 'mañana' : d + ' días'),
-        f[iAp], f[iVenta], f[iRub], (f[iOrg] || '').toString().slice(0, 45),
+        f[iAp], seguimiento || '— sin marcar —', f[iRub],
+        (f[iOrg] || '').toString().slice(0, 45),
         (f[iObj] || '').toString().slice(0, 110)
       ]]);
+      if (colorSeg[seguimiento]) sh.getRange(fila, 3).setBackground(colorSeg[seguimiento]);
       if (d <= 3) sh.getRange(fila, 1, 1, 6).setBackground('#FCE4D6');
       sh.getRange(fila, 1).setFontWeight('bold');
       fila++;
@@ -665,7 +678,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v8 · 09/09/2026';
+var VERSION = 'v9 · 11/09/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
