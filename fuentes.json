@@ -9,11 +9,11 @@
    "nota": "LA fuente clave: por ley publican acá todos los organismos y municipios, incluidas las comunas sin web. Única con VENTA y VALOR de pliego."
   },
   {
-   "activa": true,
+   "activa": false,
    "nombre": "Municipalidad de Paraná",
    "url": "https://compras.parana.gob.ar/",
    "parser": "parana",
-   "nota": "Cloudflare: bloquea a Google pero no a tu conexión"
+   "nota": "APAGADA (16/09/2026): Cloudflare bloquea todo el dominio a los programas — lectura directa, proxies, navegador headless y con ventana, y hasta los PDFs por URL. Desde el navegador funciona. Hay que mirarla a mano en compras.parana.gob.ar y cargarla en la hoja \"Agregar a mano\" de la planilla. NO publica en el Boletín Oficial."
   },
   {
    "activa": true,

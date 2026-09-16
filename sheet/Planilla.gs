@@ -25,6 +25,7 @@ var CFG = {
   DIAG: 'https://raw.githubusercontent.com/delfivit/lic-ER/main/diagnostico.csv',
   DIAG_RESPALDO: 'https://api.github.com/repos/delfivit/lic-ER/contents/diagnostico.csv',
   FUENTES: 'Fuentes',
+  MANUALES: 'Agregar a mano',
   HOJA: 'Licitaciones',
   RESUMEN: 'Resumen',
   HORA: 9                      // hora a la que se actualiza sola (GitHub corre 8:00)
@@ -104,6 +105,19 @@ function actualizar() {
     }
     salida.push(fila);
   }
+
+  // 2.b) Sumar las que el equipo carga a mano (Paraná y cualquier otra que el
+  //      sistema no pueda leer). Se tratan igual que las automáticas.
+  cargadasAMano_(ss).forEach(function (m) {
+    var fila = new Array(COLS.length).fill('');
+    for (var c in m) {
+      var i = COLS.indexOf(c);
+      if (i >= 0) fila[i] = m[c];
+    }
+    var g = mio[fila[COLS.indexOf('ID')]];
+    if (g) for (var k = 0; k < MIAS.length; k++) fila[COLS.indexOf(MIAS[k])] = g[MIAS[k]] || '';
+    salida.push(fila);
+  });
 
   // 3) Ordenar: lo descartado o duplicado al fondo; después, lo que abre antes
   var iSeg2 = COLS.indexOf('Seguimiento');
@@ -495,6 +509,79 @@ function armarResumen_(ss, filas, estadoFuentes) {
   sh.setFrozenRows(3);
 }
 
+// ====================== CARGA A MANO ==================================
+var M_COLS = ['Apertura','Rubro','Organismo','Objeto','N°','Tipo',
+              'Venta pliego hasta','Valor pliego','Link','Pliego PDF','Notas'];
+
+/**
+ * Lee la hoja "Agregar a mano". Sirve para las licitaciones que el sistema no
+ * puede leer solo (hoy, las de la Municipalidad de Paraná, cuyo sitio bloquea
+ * a los programas). Se suman al listado con el mismo tratamiento.
+ */
+function cargadasAMano_(ss) {
+  var sh = ss.getSheetByName(CFG.MANUALES) || crearHojaManuales_(ss);
+  var ultima = sh.getLastRow();
+  if (ultima < 2) return [];
+  var vals = sh.getRange(2, 1, ultima - 1, M_COLS.length).getValues();
+  var out = [];
+  for (var i = 0; i < vals.length; i++) {
+    var reg = {};
+    for (var c = 0; c < M_COLS.length; c++) reg[M_COLS[c]] = normCelda_(vals[i][c]);
+    if (!reg['Objeto'] || reg['Objeto'].length < 8) continue;      // fila vacía
+    var f = aFecha_(reg['Apertura']);
+    reg['Estado'] = f ? (f >= hoyCero_() ? 'Vigente' : 'Vencida') : 'Revisar fecha';
+    reg['Fuente'] = 'Cargada a mano';
+    reg['Detectada'] = reg['Detectada'] || Utilities.formatDate(new Date(), 'America/Argentina/Cordoba', 'dd/MM/yyyy');
+    reg['ID'] = 'id-mano-' + (reg['N°'] || '').toString().replace(/\W+/g, '') +
+                '-' + reg['Objeto'].toString().replace(/\W+/g, '').slice(0, 24).toLowerCase();
+    out.push(reg);
+  }
+  return out;
+}
+
+/** Si Sheets convirtió lo escrito en fecha o número, lo devuelve a texto. */
+function normCelda_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'America/Argentina/Cordoba', 'dd/MM/yyyy');
+  }
+  return (v == null) ? '' : v.toString().trim();
+}
+
+function hoyCero_() {
+  var d = new Date(); d.setHours(0, 0, 0, 0); return d;
+}
+
+function crearHojaManuales_(ss) {
+  var sh = ss.insertSheet(CFG.MANUALES);
+  sh.getRange(1, 1, 1, M_COLS.length).setValues([M_COLS])
+    .setFontWeight('bold').setFontColor('#ffffff').setBackground('#1E7B4F').setWrap(true);
+  sh.setFrozenRows(1);
+  var ancho = [95, 120, 240, 420, 90, 140, 110, 150, 260, 260, 220];
+  for (var c = 0; c < ancho.length; c++) sh.setColumnWidth(c + 1, ancho[c]);
+  sh.getRange(2, 1, 200, 1).setNumberFormat('@');
+  sh.getRange(2, 5, 200, 1).setNumberFormat('@');
+
+  var f = 4;
+  [['PARA QUÉ ES ESTA HOJA', true],
+   ['Para cargar licitaciones que el sistema no puede leer solo.', false],
+   ['Hoy es el caso de la Municipalidad de Paraná: su sitio bloquea a los programas', false],
+   ['(no al navegador), así que hay que mirarlo a mano en compras.parana.gob.ar', false],
+   ['', false],
+   ['Lo único obligatorio es el OBJETO. Si ponés la fecha de apertura en formato', false],
+   ['dd/mm/aaaa, el sistema calcula solo si está vigente y la muestra en el Resumen.', false],
+   ['El Rubro podés dejarlo vacío o escribir: Arquitectura, Infraestructura,', false],
+   ['Áridos, Vehículos o Materiales.', false],
+   ['', false],
+   ['Estas licitaciones aparecen en la hoja Licitaciones como "Cargada a mano" y', false],
+   ['tienen seguimiento, colores y avisos igual que las demás.', false]
+  ].forEach(function (t, i) {
+    var cel = sh.getRange(f + i, 1).setValue(t[0]);
+    if (t[1]) cel.setFontWeight('bold').setBackground('#1E7B4F').setFontColor('#ffffff');
+    else cel.setFontColor('#666666');
+  });
+  return sh;
+}
+
 // ====================== HOJA FUENTES ==================================
 // Columnas que edita el equipo (verde) y columnas que llena el sistema (azul).
 var F_MIAS = ['Activa','Nombre','URL','Parser','Notas'];
@@ -651,7 +738,7 @@ function bajarDiagnostico_() {
  */
 function limpiarHojasViejas() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var quedan = [CFG.HOJA, CFG.RESUMEN, CFG.FUENTES, 'Mails'];
+  var quedan = [CFG.HOJA, CFG.RESUMEN, CFG.FUENTES, CFG.MANUALES, 'Mails'];
   var aBorrar = ss.getSheets().filter(function (h) { return quedan.indexOf(h.getName()) < 0; });
   if (!aBorrar.length) { ss.toast('No hay hojas viejas para borrar.', 'Limpieza', 6); return; }
 
@@ -678,7 +765,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v9 · 11/09/2026';
+var VERSION = 'v10 · 16/09/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
@@ -713,6 +800,13 @@ function probarConexion() {
   SpreadsheetApp.getUi().alert('Prueba de conexión', lineas.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
+function irAManuales() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(CFG.MANUALES) || crearHojaManuales_(ss);
+  sh.activate();
+  ss.toast('Cargá una fila por licitación. Lo único obligatorio es el Objeto.', 'Agregar a mano', 10);
+}
+
 function irAFuentes() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(CFG.FUENTES);
@@ -725,6 +819,7 @@ function onOpen() {
     .addItem('Actualizar ahora', 'actualizar')
     .addSeparator()
     .addItem('Revisar estado de las fuentes', 'irAFuentes')
+    .addItem('Agregar una licitación a mano', 'irAManuales')
     .addItem('Probar conexión (si algo no anda)', 'probarConexion')
     .addSeparator()
     .addItem('Borrar hojas viejas', 'limpiarHojasViejas')
