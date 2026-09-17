@@ -244,7 +244,7 @@ def parsear(texto, fecha_bol):
             ))
     return out
 
-def recolectar(dias=7, sesion=None, hilos=6):
+def recolectar(dias=7, sesion=None, hilos=3):
     """Baja los boletines de los últimos N días y devuelve todos los avisos.
 
     Los PDFs se bajan en paralelo: son ~2 MB cada uno y en secuencia 20 días

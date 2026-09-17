@@ -234,11 +234,11 @@ class Red:
         self.s.mount('https://', ad); self.s.mount('http://', ad)
         self.log = {}
 
-    def get(self, url, fuente, json_=False, _proxy=False):
+    def get(self, url, fuente, json_=False, _proxy=False, _reintento=False):
         d = self.log.setdefault(fuente, {'http': '', 'bytes': 0, 'error': '', 'crudos': 0, 'relev': 0})
         pedir = (PROXIES[_proxy - 1] + quote(url, safe='')) if _proxy else url
         try:
-            r = self.s.get(pedir, timeout=(10, 25), allow_redirects=True)
+            r = self.s.get(pedir, timeout=(10, 45), allow_redirects=True)
             d['http'] = r.status_code
             if r.status_code != 200:
                 # Paraná bloquea a los datacenters (a Google le daba 403). Si estamos
@@ -280,6 +280,19 @@ class Red:
                 d['error'] = 'Bloqueado por Cloudflare (necesita navegador real)'
                 return None
             return txt
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            # Un timeout casi siempre es pasajero (el sitio estaba ocupado):
+            # se reintenta una vez antes de dar la fuente por caída.
+            if not _proxy and not _reintento:
+                time.sleep(3)
+                alt = self.get(url, fuente, json_, _reintento=True)
+                if alt is not None:
+                    d['http'] = str(d.get('http') or '') + ' (2º intento)'
+                    d['error'] = ''
+                    return alt
+            d['http'] = 'ERROR'
+            d['error'] = f'{type(e).__name__}: {e}'[:120]
+            return None
         except Exception as e:
             if not _proxy and 'SSL' in type(e).__name__.upper():
                 # ENERSA no manda el certificado intermedio: el navegador sí completa la cadena
@@ -1061,7 +1074,9 @@ def main():
             except Exception:
                 pass
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    # 4 fuentes a la vez: con 6 el Boletín (que baja ~17 PDFs de 2 MB en
+    # paralelo) saturaba la conexión y las demás caían por timeout.
+    with ThreadPoolExecutor(max_workers=4) as pool:
         futuros = {f['nombre']: (pool.submit(trabajo, f), time.time(), f) for f in fuentes}
         for nombre, (fut, t0, f) in futuros.items():
             try:
