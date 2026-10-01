@@ -13,7 +13,7 @@
    "nombre": "Municipalidad de Paraná",
    "url": "https://compras.parana.gob.ar/",
    "parser": "parana",
-   "nota": "Cloudflare la bloquea POR RATOS (16/09 rechazó todo el día; el 17/09 funcionó normal). Cuando aparezca \"Sin resultados\" varias corridas seguidas, conviene mirarla a mano en compras.parana.gob.ar y cargar lo que haga falta en la hoja \"Agregar a mano\". No publica en el Boletín Oficial."
+   "nota": "OJO: este portal tiene sólo compras chicas (insumos, reparaciones). Las OBRAS PÚBLICAS grandes de Paraná no salen acá: van por el Boletín Oficial municipal. Además Cloudflare lo bloquea por ratos."
   },
   {
    "activa": true,
@@ -167,6 +167,13 @@
    "url": "https://iapserseguros.seg.ar/proveedores/",
    "parser": "generico",
    "nota": "Pasada por el ingeniero. Mayormente seguros: el filtro de rubro descarta lo que no sirve."
+  },
+  {
+   "activa": true,
+   "nombre": "Boletín Oficial Municipalidad de Paraná",
+   "url": "https://parana.gob.ar/boletinoficial",
+   "parser": "generico",
+   "nota": "Acá publica Paraná sus obras públicas grandes, que NO aparecen en compras.parana.gob.ar (ahí sólo hay compras chicas). Al 01/10/2026 la página dice \"Estamos trabajando para reestablecer el servicio\". Queda activa: en cuanto vuelva, empieza a traer sola y el Diagnóstico lo va a mostrar en verde."
   }
  ]
 }
