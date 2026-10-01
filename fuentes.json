@@ -171,9 +171,9 @@
   {
    "activa": true,
    "nombre": "Boletín Oficial Municipalidad de Paraná",
-   "url": "https://parana.gob.ar/boletinoficial",
-   "parser": "generico",
-   "nota": "Acá publica Paraná sus obras públicas grandes, que NO aparecen en compras.parana.gob.ar (ahí sólo hay compras chicas). Al 01/10/2026 la página dice \"Estamos trabajando para reestablecer el servicio\". Queda activa: en cuanto vuelva, empieza a traer sola y el Diagnóstico lo va a mostrar en verde."
+   "url": "https://boletinoficial.parana.gob.ar/",
+   "parser": "boletinparana",
+   "nota": "Acá salen las OBRAS PÚBLICAS de Paraná, que NO aparecen en compras.parana.gob.ar (ese portal tiene sólo compras chicas). OJO: la página parana.gob.ar/boletinoficial está caída, pero el sistema real es este subdominio y funciona."
   }
  ]
 }

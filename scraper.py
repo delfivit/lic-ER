@@ -454,11 +454,18 @@ def datos_de_texto_aviso(texto):
         if f: out['apertura'] = f
     # cortar en el próximo rótulo: si no, el importe se lleva "CUENTA DE
     # DEPÓSITO: NBersa CC..." y demás texto del aviso
-    CORTE = (r'(?=\s*(?:CUENTA|DEP[OÓ]SITO|PLAZO|APERTURA|VALOR|CONSULTAS|LUGAR|'
-             r'GARANT[IÍ]A|PRESUPUESTO|OBRA|DEPARTAMENTO|PLIEGO|CUIT|CBU)\b|$)')
-    m = re.search(r'VALOR\s+DEL?\s+PLIEGO\s*:?\s*(.{3,60}?)' + CORTE, t, re.I)
+    # Corta en el próximo rótulo, en el "el que deberá ser abonado..." que sigue
+    # al importe, o en el primer punto. Sin esto, si no había otro rótulo cerca
+    # no capturaba nada (pasó con "Valor del Pliego: $ 10.000 (pesos diez mil)").
+    # OJO con el \b del principio: sin él, "CINCUENTA" contiene "CUENTA" y
+    # cortaba el importe en "PESOS CIN".
+    CORTE = (r'(?=\s*\b(?:CUENTA|DEP[OÓ]SITO|PLAZO|APERTURA|VALOR|CONSULTAS|LUGAR|'
+             r'GARANT[IÍ]A|PRESUPUESTO|OBRA|DEPARTAMENTO|PLIEGO|CUIT|CBU|FECHA|HORA|'
+             r'el\s+que|que\s+deber|el\s+mismo|los\s+interesados)\b'
+             r'|\s*[.;]\s|$)')
+    m = re.search(r'VALOR\s+DE\s*L?\s+PLIEGOS?\b\s*:?\s*(.{3,70}?)' + CORTE, t, re.I)
     if m: out['valor'] = norm(m.group(1)).strip(' .-')[:50]
-    m = re.search(r'PRESUPUESTO\s+OFICIAL\s*:?\s*(.{3,70}?)' + CORTE, t, re.I)
+    m = re.search(r'PRESUPUESTO\s+OFICIAL\b\s*:?\s*(.{3,70}?)' + CORTE, t, re.I)
     if m: out['presupuesto'] = norm(m.group(1)).strip(' .-')[:60]
     v = venta_pliego(t)
     if v: out['venta'] = v
@@ -781,7 +788,71 @@ def p_cafesg(red, url, nombre):
     return out
 
 
-PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'cafesg': p_cafesg, 'minplan': p_minplan, 'iapv': p_iapv,
+def p_boletinparana(red, url, nombre):
+    """Boletín Oficial de la Municipalidad de Paraná. Acá salen las OBRAS
+    PÚBLICAS grandes del municipio, que no aparecen en compras.parana.gob.ar
+    (ese portal tiene sólo compras chicas).
+
+    La página se arma con una llamada a boletin-process.php; la sección 5 es
+    'Licitación'. Cada registro trae objeto, apertura, presupuesto, valor del
+    pliego y los PDF."""
+    base = 'https://boletinoficial.parana.gob.ar'
+    d = red.log.setdefault(nombre, {'http': '', 'bytes': 0, 'error': '', 'crudos': 0, 'relev': 0})
+    # Sesión PROPIA: la del scraper se comparte entre las fuentes que corren en
+    # paralelo, y tocarle los headers (hace falta X-Requested-With) rompía a las
+    # demás.
+    ses = requests.Session()
+    ses.headers.update(dict(HEADERS, **{'X-Requested-With': 'XMLHttpRequest',
+                                        'Referer': base + '/'}))
+    out = []
+    try:
+        ses.get(base + '/', timeout=(10, 30))           # abre la sesión
+        r = ses.post(base + '/boletin-process.php',
+                     data={'palabrab': '', 'p': '1', 's': '5', 'a': '0', 'm': '0'},
+                     timeout=(10, 40))
+        d['http'] = r.status_code
+        datos = r.json()
+    except Exception as e:
+        d['error'] = f'{type(e).__name__}: {e}'[:110]
+        return []
+    finally:
+        ses.close()
+
+    for bloque in (datos.get('boletin') or []):
+        soup = BeautifulSoup(bloque, 'lxml')
+        titulo = norm(soup.find('h2').get_text()) if soup.find('h2') else ''
+        if not titulo: continue
+        texto = norm(soup.get_text(' '))
+        mn = re.search(r'n[°ºo]?\s*(\d+\s*/\s*\d{2,4})', titulo, re.I)
+        mo = re.search(r'Objeto\s*:\s*(.+?)(?=\s*(?:Descripci[oó]n|Apertura|Presupuesto|Valor|Consultas|Fecha)\s*:|$)',
+                       texto, re.I | re.S)
+        mf = re.search(r'Fecha\s+de\s+apertura\s*:\s*(.+?)(?=\s*(?:Lugar|Fecha\s+de\s+publicaci)|$)', texto, re.I)
+        apert = norm(mf.group(1)) if mf else ''
+        extra = datos_de_texto_aviso(texto)
+        # el PDF del llamado (los demás son anexos del proyecto)
+        pdf = ''
+        for a in soup.find_all('a', href=True):
+            etiqueta = norm(a.get_text())
+            if re.search(r'licitacion', etiqueta, re.I):
+                pdf = a['href'] if a['href'].startswith('http') else base + '/' + a['href'].lstrip('/')
+                break
+        tipo = ('Licitación Pública' if re.search(r'p[uú]blica', titulo, re.I) else
+                'Licitación Privada' if re.search(r'privada', titulo, re.I) else
+                'Concurso de Precios' if re.search(r'concurso', titulo, re.I) else 'Licitación')
+        out.append(dict(
+            fuente=nombre, organismo='Municipalidad de Paraná', tipo=tipo,
+            numero=re.sub(r'\s+', '', mn.group(1)) if mn else '',
+            objeto=norm(mo.group(1)).strip(' .') if mo else titulo,
+            apertura_txt=apert or 'Ver boletín', fecha=parse_fecha(apert),
+            venta=venta_pliego(texto),
+            valor_pliego=extra.get('valor', ''),
+            link=base + '/', pdf=pdf,
+            uid=f'BOPNA|{titulo}'))
+    return out
+
+
+PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'cafesg': p_cafesg,
+           'boletinparana': p_boletinparana, 'minplan': p_minplan, 'iapv': p_iapv,
            'enersa': p_enersa, 'wpjson': p_wpjson, 'generico': p_generico}
 # ------------------------------------------------ buscar el pliego en el sitio
 # Los avisos del Boletín dicen "se podrá descargar en https://www.segui.gob.ar"
@@ -1030,12 +1101,23 @@ def main():
     # lo que el equipo cargó en la planilla manda sobre el archivo
     de_planilla = fuentes_de_la_planilla()
     if de_planilla:
-        por_url = {f['url'].rstrip('/'): i for i, f in enumerate(todas)}
+        def clave_nombre(n):
+            return sin_acentos((n or '').lower()).replace(' ', '')[:36]
+        por_url = {f['url'].rstrip('/').replace('https://', '').replace('http://', ''): i
+                   for i, f in enumerate(todas)}
+        por_nombre = {clave_nombre(f['nombre']): i for i, f in enumerate(todas)}
         sumadas = 0
         for f in de_planilla:
-            k = f['url'].rstrip('/')
-            if k in por_url:
-                todas[por_url[k]].update(f)
+            k = f['url'].rstrip('/').replace('https://', '').replace('http://', '')
+            i = por_url.get(k)
+            if i is None:
+                i = por_nombre.get(clave_nombre(f['nombre']))
+            if i is not None:
+                # Fuente ya conocida: la URL y el parser son datos técnicos que
+                # se mantienen acá (si no, una fila vieja de la planilla pisaba
+                # las correcciones). El equipo decide si está activa y las notas.
+                todas[i]['activa'] = f['activa']
+                if f.get('nota'): todas[i]['nota'] = f['nota']
             else:
                 todas.append(f); sumadas += 1
         print(f'  ({len(de_planilla)} fuentes leídas de la planilla'
