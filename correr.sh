@@ -13,7 +13,7 @@ fi
 CODIGO=$?
 
 if [ $CODIGO -eq 0 ] && git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/null 2>&1; then
-    git add -A licitaciones.csv estado.json Licitaciones-Entre-Rios.xlsx 2>/dev/null
+    git add -A licitaciones.csv diagnostico.csv estado.json Licitaciones-Entre-Rios.xlsx 2>/dev/null
     if ! git diff --staged --quiet 2>/dev/null; then
         git -c user.name="Delfina" -c user.email="delfina@granssrl.com.ar" \
             commit -q -m "Licitaciones desde la Mac (incluye Paraná) - $(date '+%d/%m/%Y %H:%M')"

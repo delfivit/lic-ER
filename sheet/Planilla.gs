@@ -54,6 +54,8 @@ var ESTADOS_COLOR = [
 var ESTADOS = [''].concat(ESTADOS_COLOR.map(function (e) { return e.estado; }));
 // Marcadas así, la licitación se va al final y no cuenta en el Resumen.
 var ESTADOS_OCULTOS = ['Descartada', 'Duplicada'];
+// Cuántos días hacia adelante muestra el Resumen.
+var DIAS_PROXIMAS = 30;
 
 // del nombre de la columna del CSV al de la planilla
 var DESDE_CSV = {
@@ -370,6 +372,10 @@ function aFecha_(v) {
 function armarResumen_(ss, filas, estadoFuentes) {
   var sh = ss.getSheetByName(CFG.RESUMEN) || ss.insertSheet(CFG.RESUMEN, 1);
   sh.clear();
+  // clear() no borra el formato de número: sin esto, un 30 heredaba un formato
+  // de porcentaje y se mostraba como "3000%".
+  sh.clearFormats();
+  sh.getRange(1, 1, 400, 8).setNumberFormat('0');
 
   var iEst = COLS.indexOf('Estado'), iRub = COLS.indexOf('Rubro'),
       iAp = COLS.indexOf('Apertura'), iSeg = COLS.indexOf('Seguimiento'),
@@ -377,13 +383,14 @@ function armarResumen_(ss, filas, estadoFuentes) {
       iVenta = COLS.indexOf('Venta pliego hasta'), iPrec = COLS.indexOf('Precio ofertado');
 
   var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  var vig = [], porRubro = {}, porSeg = {}, prox = [], conFechaPliego = 0;
+  var vig = [], porRubro = {}, porSeg = {}, prox = [], conFechaPliego = 0, vigTodas = 0;
   for (var i = 0; i < filas.length; i++) {
     var f = filas[i];
     var seg = (f[iSeg] || '').toString().trim();
     if (seg) porSeg[seg] = (porSeg[seg] || 0) + 1;
     if (f[iEst] !== 'Vigente') continue;
-    if (ESTADOS_OCULTOS.indexOf(seg) >= 0) continue;     // descartada/duplicada: no cuenta
+    vigTodas++;
+    if (ESTADOS_OCULTOS.indexOf(seg) >= 0) continue;     // descartada/duplicada
     vig.push(f);
     porRubro[f[iRub]] = (porRubro[f[iRub]] || 0) + 1;
     var v = (f[iVenta] || '').toString();
@@ -393,7 +400,7 @@ function armarResumen_(ss, filas, estadoFuentes) {
     var fa = aFecha_(f[iAp]);
     if (fa) {
       var dias = Math.round((fa - hoy) / 86400000);
-      if (dias >= 0 && dias <= 15) prox.push([dias, f]);
+      if (dias >= 0 && dias <= DIAS_PROXIMAS) prox.push([dias, f]);
     }
   }
   prox.sort(function (a, b) { return a[0] - b[0]; });
@@ -427,13 +434,14 @@ function armarResumen_(ss, filas, estadoFuentes) {
   fila += 1;
 
   // --- números grandes
-  encabezado(['VIGENTES', 'Con fecha de apertura', 'Con fecha de venta de pliego', 'En seguimiento', '', '']);
+  encabezado(['VIGENTES EN TOTAL', 'SIN DESCARTAR', 'Con fecha de venta de pliego', 'Marcadas por ustedes', '', '']);
   sh.getRange(fila, 1, 1, 4).setValues([[
+    vigTodas,
     vig.length,
-    vig.filter(function (f) { return aFecha_(f[iAp]); }).length,
     conFechaPliego,
     Object.keys(porSeg).reduce(function (t, k) { return t + porSeg[k]; }, 0)
-  ]]).setFontSize(20).setFontWeight('bold').setHorizontalAlignment('center');
+  ]]).setFontSize(20).setFontWeight('bold').setHorizontalAlignment('center')
+    .setNumberFormat('0');
   fila += 3;
 
   // --- por rubro
@@ -443,6 +451,7 @@ function armarResumen_(ss, filas, estadoFuentes) {
   Object.keys(porRubro).sort(function (a, b) { return porRubro[b] - porRubro[a]; })
     .forEach(function (r) {
       sh.getRange(fila, 1, 1, 2).setValues([[r, porRubro[r]]]);
+      sh.getRange(fila, 2).setNumberFormat('0');
       sh.getRange(fila, 1).setBackground(colorRubro[r] || '#ffffff').setFontWeight('bold');
       fila++;
     });
@@ -462,6 +471,7 @@ function armarResumen_(ss, filas, estadoFuentes) {
     if (!porSeg[e]) return;
     hayAlguno = true;
     sh.getRange(fila, 1, 1, 2).setValues([[e, porSeg[e]]]);
+    sh.getRange(fila, 2).setNumberFormat('0');
     sh.getRange(fila, 1).setBackground(colorSeg[e]).setFontWeight('bold');
     fila++;
   });
@@ -473,6 +483,7 @@ function armarResumen_(ss, filas, estadoFuentes) {
   }
   var ganadas = porSeg['Ganada'] || 0, perdidas = porSeg['Perdida'] || 0;
   if (ganadas + perdidas > 0) {
+    sh.getRange(fila, 2).setNumberFormat('@');
     sh.getRange(fila, 1, 1, 2).setValues([['Efectividad', Math.round(ganadas * 100 / (ganadas + perdidas)) + '%']]);
     sh.getRange(fila, 1, 1, 2).setFontWeight('bold');
     fila++;
@@ -480,9 +491,9 @@ function armarResumen_(ss, filas, estadoFuentes) {
   fila += 1;
 
   // --- las que vencen primero
-  titulo('ABREN EN LOS PRÓXIMOS 15 DÍAS', '#B45309');
+  titulo('ABREN EN LOS PRÓXIMOS ' + DIAS_PROXIMAS + ' DÍAS', '#B45309');
   if (!prox.length) {
-    sh.getRange(fila, 1, 1, 6).merge().setValue('No hay aperturas en los próximos 15 días.')
+    sh.getRange(fila, 1, 1, 6).merge().setValue('No hay aperturas en los próximos ' + DIAS_PROXIMAS + ' días.')
       .setFontColor('#888888').setFontStyle('italic');
     fila++;
   } else {
@@ -765,7 +776,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v10 · 16/09/2026';
+var VERSION = 'v11 · 05/10/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
