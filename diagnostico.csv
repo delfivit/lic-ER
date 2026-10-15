@@ -1,26 +1,26 @@
 Fuente,URL,Parser,Estado,Respuesta,Encontradas,De tu rubro,Corridas sin traer nada,Detalle,Última corrida
-Boletín Oficial de Entre Ríos,https://www.entrerios.gov.ar/boletin/calendario/Boletin/,boletin,OK,16 PDFs,78,33,0,,15/10/2026 11:17
-Municipalidad de Paraná,https://compras.parana.gob.ar/,parana,ERROR,522,0,0,1,HTTP 403,15/10/2026 11:17
-Min. Planeamiento (provincia),https://www.entrerios.gov.ar/minplan/licitaciones,minplan,OK,200,533,401,0,,15/10/2026 11:17
-IAPV — Viviendas,https://www.iapv.gob.ar/seccion/articulos-grupo/20/pliegos-de-licitaciones,iapv,OK,200,10,10,0,,15/10/2026 11:17
-Vialidad Entre Ríos (DPV),https://www.dpver.gov.ar/,wpjson,OK,200,7,3,0,,15/10/2026 11:17
-Túnel Subfluvial,https://tunelsubfluvial.gov.ar/,wpjson,OK,200,21,3,0,,15/10/2026 11:17
-ENERSA,https://www.enersa.com.ar/area-proveedores/,enersa,ERROR,ERROR,0,0,2,"SSLError: HTTPSConnectionPool(host='www.enersa.com.ar', port=443): Max retries exceeded with url: /area-proveedores/ (Ca",15/10/2026 11:17
-Municipalidad de Crespo,https://www.crespo.gob.ar/licitaciones-publicas-2026/,generico,OK,200,6,3,0,,15/10/2026 11:17
-Municipalidad de Chajarí,https://licitaciones.chajari.gob.ar/licitaciones,generico,Sin resultados,200,0,0,2,,15/10/2026 11:17
-Municipalidad de Federación,https://www.federacion.gob.ar/licitaciones,generico,OK,200,4,0,0,,15/10/2026 11:17
-Municipalidad de Diamante,https://www.diamante.gob.ar/licitaciones-2026/,generico,OK,200,1,0,0,,15/10/2026 11:17
-Municipalidad de Oro Verde,https://oroverde.gob.ar/portal/secciones/licitaciones/,generico,OK,200,3,0,0,,15/10/2026 11:17
-Municipalidad de Concordia,https://compras.concordia.gob.ar/,generico,Sin resultados,200,0,0,2,,15/10/2026 11:17
-Portal de Transparencia (provincia),https://portal.entrerios.gov.ar/ps/transparencia/licitaciones,generico,Sin resultados,200,0,0,2,,15/10/2026 11:17
-Municipalidad de Victoria,https://www.victoria.gob.ar/,generico,Sin resultados,200,0,0,2,,15/10/2026 11:17
-CAFESG (Salto Grande),https://cafesg.gob.ar/cafesg2/licitaciones/,cafesg,Sin resultados,200,0,0,2,,15/10/2026 11:17
-Municipalidad de San Benito,https://sanbenito.gob.ar/transparencia/contabilidad/licitaciones,generico,OK,200,1,0,0,,15/10/2026 11:17
-Municipalidad de Aldea Brasilera,https://aldeabrasilera.gob.ar/transparencia,generico,Sin resultados,200,0,0,2,,15/10/2026 11:17
-Poder Judicial de Entre Ríos,https://www.jusentrerios.gov.ar/contrataciones/1,generico,OK,200,5,0,0,,15/10/2026 11:17
-IAPSER Seguros,https://iapserseguros.seg.ar/proveedores/,generico,OK,200,1,0,0,,15/10/2026 11:17
-Boletín Oficial Municipalidad de Paraná,https://boletinoficial.parana.gob.ar/,boletinparana,ERROR,403,0,0,1,JSONDecodeError: Expecting value: line 1 column 1 (char 0),15/10/2026 11:17
-Municipalidad de La Paz,https://www.lapaz.gob.ar/,generico,Apagada,,,,,No tiene sección de licitaciones propia (verificado 06/09/2026).,15/10/2026 11:17
-Municipalidad de Gualeguaychú,https://gualeguaychu.gov.ar/tramites/compras-y-licitaciones,generico,Apagada,,,,,Redirige a un portal de datos abiertos que no responde. Llega por el Boletín.,15/10/2026 11:17
-CGE — Consejo General de Educación,https://cge.entrerios.gov.ar/,generico,Apagada,,,,,"Publica concursos docentes, no obra. Las obras escolares llegan por DGAyC.",15/10/2026 11:17
-IOSPER / Obra Social de ER,https://www.iosper.gov.ar/,generico,Apagada,,,,,"Es la obra social (prótesis, insumos médicos). No es tu rubro. OJO: Obras Sanitarias (OSER) sí llega por Min. Planeamiento.",15/10/2026 11:17
+Boletín Oficial de Entre Ríos,https://www.entrerios.gov.ar/boletin/calendario/Boletin/,boletin,OK,17 PDFs,82,34,0,,15/10/2026 14:29
+Municipalidad de Paraná,https://compras.parana.gob.ar/,parana,ERROR,522,0,0,2,HTTP 403,15/10/2026 14:29
+Min. Planeamiento (provincia),https://www.entrerios.gov.ar/minplan/licitaciones,minplan,OK,200,533,401,0,,15/10/2026 14:29
+IAPV — Viviendas,https://www.iapv.gob.ar/seccion/articulos-grupo/20/pliegos-de-licitaciones,iapv,OK,200,10,10,0,,15/10/2026 14:29
+Vialidad Entre Ríos (DPV),https://www.dpver.gov.ar/,wpjson,OK,200,7,3,0,,15/10/2026 14:29
+Túnel Subfluvial,https://tunelsubfluvial.gov.ar/,wpjson,OK,200,21,3,0,,15/10/2026 14:29
+ENERSA,https://www.enersa.com.ar/area-proveedores/,enersa,OK,SSL → navegador,6,1,0,,15/10/2026 14:29
+Municipalidad de Crespo,https://www.crespo.gob.ar/licitaciones-publicas-2026/,generico,OK,200,6,3,0,,15/10/2026 14:29
+Municipalidad de Chajarí,https://licitaciones.chajari.gob.ar/licitaciones,generico,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),15/10/2026 14:29
+Municipalidad de Federación,https://www.federacion.gob.ar/licitaciones,generico,OK,200,4,0,0,,15/10/2026 14:29
+Municipalidad de Diamante,https://www.diamante.gob.ar/licitaciones-2026/,generico,OK,200,1,0,0,,15/10/2026 14:29
+Municipalidad de Oro Verde,https://oroverde.gob.ar/portal/secciones/licitaciones/,generico,OK,200,3,0,0,,15/10/2026 14:29
+Municipalidad de Concordia,https://compras.concordia.gob.ar/,generico,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),15/10/2026 14:29
+Portal de Transparencia (provincia),https://portal.entrerios.gov.ar/ps/transparencia/licitaciones,generico,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),15/10/2026 14:29
+Municipalidad de Victoria,https://www.victoria.gob.ar/,generico,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),15/10/2026 14:29
+CAFESG (Salto Grande),https://cafesg.gob.ar/cafesg2/licitaciones/,cafesg,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),15/10/2026 14:29
+Municipalidad de San Benito,https://sanbenito.gob.ar/transparencia/contabilidad/licitaciones,generico,OK,200,1,0,0,,15/10/2026 14:29
+Municipalidad de Aldea Brasilera,https://aldeabrasilera.gob.ar/transparencia,generico,Sin resultados,200,0,0,3,No trajo nada hace 3 corrida(s),15/10/2026 14:29
+Poder Judicial de Entre Ríos,https://www.jusentrerios.gov.ar/contrataciones/1,generico,OK,200,5,0,0,,15/10/2026 14:29
+IAPSER Seguros,https://iapserseguros.seg.ar/proveedores/,generico,OK,200,1,0,0,,15/10/2026 14:29
+Boletín Oficial Municipalidad de Paraná,https://boletinoficial.parana.gob.ar/,boletinparana,ERROR,403,0,0,2,Cloudflare bloquea desde la nube. Esta fuente la cubre la Mac cuando corre; sus licitaciones no se pierden.,15/10/2026 14:29
+Municipalidad de La Paz,https://www.lapaz.gob.ar/,generico,Apagada,,,,,No tiene sección de licitaciones propia (verificado 06/09/2026).,15/10/2026 14:29
+Municipalidad de Gualeguaychú,https://gualeguaychu.gov.ar/tramites/compras-y-licitaciones,generico,Apagada,,,,,Redirige a un portal de datos abiertos que no responde. Llega por el Boletín.,15/10/2026 14:29
+CGE — Consejo General de Educación,https://cge.entrerios.gov.ar/,generico,Apagada,,,,,"Publica concursos docentes, no obra. Las obras escolares llegan por DGAyC.",15/10/2026 14:29
+IOSPER / Obra Social de ER,https://www.iosper.gov.ar/,generico,Apagada,,,,,"Es la obra social (prótesis, insumos médicos). No es tu rubro. OJO: Obras Sanitarias (OSER) sí llega por Min. Planeamiento.",15/10/2026 14:29
