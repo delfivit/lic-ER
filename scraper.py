@@ -281,6 +281,13 @@ class Red:
                 return None
             return txt
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            # OJO: SSLError hereda de ConnectionError, así que entra por acá y
+            # nunca llegaba al reintento con navegador (que es justo lo que
+            # resuelve el certificado incompleto de ENERSA).
+            if isinstance(e, requests.exceptions.SSLError) and not _proxy:
+                alt = self._con_navegador(url, d, json_, 'SSL')
+                if alt is not None:
+                    return alt
             # Un timeout casi siempre es pasajero (el sitio estaba ocupado):
             # se reintenta una vez antes de dar la fuente por caída.
             if not _proxy and not _reintento:

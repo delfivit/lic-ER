@@ -619,15 +619,21 @@ function actualizarFuentes_(ss) {
     }
   }
 
-  // unir: manda lo que está en la hoja; el diagnóstico aporta el estado
-  var porUrl = {};
-  previas.forEach(function (p) { porUrl[norUrl_(p.url)] = p; });
-  var filas = [], vistas = {};
+  // unir: manda lo que está en la hoja; el diagnóstico aporta el estado.
+  // Se indexa por URL y también por NOMBRE: si una fuente cambió de URL, sin
+  // esto aparecían dos filas, la vieja y la nueva.
+  var porUrl = {}, porNombre = {};
+  previas.forEach(function (p) {
+    porUrl[norUrl_(p.url)] = p;
+    porNombre[norNombre_(p.nombre)] = p;
+  });
+  var filas = [], vistas = {}, vistasNombre = {};
 
   diag.forEach(function (d) {
     var k = norUrl_(d['URL']);
-    var p = porUrl[k];
+    var p = porUrl[k] || porNombre[norNombre_(d['Fuente'])];
     vistas[k] = true;
+    vistasNombre[norNombre_(d['Fuente'])] = true;
     filas.push([
       siNo_(p ? p.activa : (d['Estado'] === 'Apagada' ? 'NO' : 'SI')),
       p && p.nombre ? p.nombre : d['Fuente'],
@@ -643,7 +649,7 @@ function actualizarFuentes_(ss) {
   // las que el equipo agregó y todavía no se buscaron
   var sinDiag = (diag.length === 0);
   previas.forEach(function (p) {
-    if (vistas[norUrl_(p.url)]) return;
+    if (vistas[norUrl_(p.url)] || vistasNombre[norNombre_(p.nombre)]) return;
     filas.push([siNo_(p.activa), p.nombre, p.url, p.parser, p.notas,
                 sinDiag ? 'Sin datos' : 'Se busca mañana', '', '', '',
                 sinDiag ? 'No se pudo leer el estado de las fuentes. Probá "Actualizar ahora" en un rato.'
@@ -722,6 +728,12 @@ function siNo_(v) {
   return (t === 'NO' || t === 'N' || t === 'FALSE' || t === 'FALSO') ? 'NO' : 'SI';
 }
 
+function norNombre_(n) {
+  return (n || '').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '').slice(0, 34);
+}
+
 function norUrl_(u) {
   return (u || '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '').trim();
 }
@@ -778,7 +790,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v11 · 05/10/2026';
+var VERSION = 'v12 · 15/10/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.
