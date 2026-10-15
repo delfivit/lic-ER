@@ -631,8 +631,10 @@ function actualizarFuentes_(ss) {
     filas.push([
       siNo_(p ? p.activa : (d['Estado'] === 'Apagada' ? 'NO' : 'SI')),
       p && p.nombre ? p.nombre : d['Fuente'],
+      // La URL y el parser los decide el sistema: si se muestran los que tenía
+      // escrito el equipo, quedan a la vista valores viejos que ya se corrigieron.
       d['URL'],
-      p && p.parser ? p.parser : d['Parser'],
+      d['Parser'],
       p && p.notas ? p.notas : d['Detalle'],
       d['Estado'], d['Encontradas'], d['De tu rubro'],
       d['Corridas sin traer nada'], d['Detalle'], d['Última corrida']

@@ -811,7 +811,20 @@ def p_boletinparana(red, url, nombre):
                      data={'palabrab': '', 'p': '1', 's': '5', 'a': '0', 'm': '0'},
                      timeout=(10, 40))
         d['http'] = r.status_code
-        datos = r.json()
+        try:
+            datos = r.json()
+        except ValueError:
+            # No vino JSON. Desde los servidores de GitHub este sitio devuelve
+            # el challenge de Cloudflare; desde una conexión hogareña responde
+            # normal. Lo decimos con todas las letras en vez de "JSONDecodeError".
+            cuerpo = r.text[:3000]
+            if re.search(r'just a moment|un momento|cf-browser|challenge|cloudflare|attention required',
+                         cuerpo, re.I):
+                d['error'] = ('Cloudflare bloquea desde la nube. Esta fuente la cubre la Mac '
+                              'cuando corre; sus licitaciones no se pierden.')
+            else:
+                d['error'] = f'Respondió algo que no es JSON (HTTP {r.status_code})'
+            return []
     except Exception as e:
         d['error'] = f'{type(e).__name__}: {e}'[:110]
         return []
