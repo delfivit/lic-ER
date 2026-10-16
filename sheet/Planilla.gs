@@ -608,8 +608,8 @@ function actualizarFuentes_(ss) {
 
   // lo que ya está cargado en la hoja (para no pisar lo que escribió el equipo)
   var previas = [], ultima = sh.getLastRow();
-  if (!nueva && ultima > 1) {
-    var v = sh.getRange(2, 1, ultima - 1, F_COLS.length).getValues();
+  if (!nueva && ultima > 2) {
+    var v = sh.getRange(3, 1, ultima - 2, F_COLS.length).getValues();
     for (var i = 0; i < v.length; i++) {
       var url = (v[i][F_COLS.indexOf('URL')] || '').toString().trim();
       if (url) previas.push({
@@ -641,7 +641,7 @@ function actualizarFuentes_(ss) {
       // escrito el equipo, quedan a la vista valores viejos que ya se corrigieron.
       d['URL'],
       d['Parser'],
-      p && p.notas ? p.notas : d['Detalle'],
+      notaLimpia_(p && p.notas, d),
       d['Estado'], d['Encontradas'], d['De tu rubro'],
       d['Corridas sin traer nada'], d['Detalle'], d['Última corrida']
     ]);
@@ -663,43 +663,82 @@ function actualizarFuentes_(ss) {
   var posicion = sh.getIndex() - 1;
   ss.deleteSheet(sh);
   sh = ss.insertSheet(CFG.FUENTES, posicion);
-  sh.getRange(1, 1, 1, F_COLS.length).setValues([F_COLS]);
+  // Fila 1: resumen. Fila 2: encabezados. Datos desde la 3.
+  // (Antes el resumen se insertaba al final con insertRowBefore y los colores
+  // quedaban corridos una fila respecto de los datos.)
+  sh.getRange(2, 1, 1, F_COLS.length).setValues([F_COLS]);
   for (var c = 0; c < F_COLS.length; c++) {
-    sh.getRange(1, c + 1).setFontWeight('bold').setFontColor('#ffffff')
+    sh.getRange(2, c + 1).setFontWeight('bold').setFontColor('#ffffff')
       .setBackground(F_MIAS.indexOf(F_COLS[c]) >= 0 ? '#1E7B4F' : '#1F3A5F').setWrap(true);
   }
+  // Ordenar en tres grupos para que el ruido no tape lo importante:
+  // 1) problemas de verdad · 2) funcionando · 3) sin solución o apagadas
+  var iEst2 = F_COLS.indexOf('Estado'), iNota = F_COLS.indexOf('Notas'),
+      iCero = F_COLS.indexOf('Corridas sin traer nada');
+  function grupo(f) {
+    var est = (f[iEst2] || '').toString();
+    var nota = (f[iNota] || '').toString();
+    var sinSolucion = /NO SE PUEDE|no tiene secci|Apagada|iframe|JavaScript|bloquea/i.test(nota);
+    if (est === 'Apagada' || sinSolucion) return 3;
+    if (est === 'ERROR' || (Number(f[iCero]) || 0) >= 3) return 1;
+    return 2;
+  }
+  filas.sort(function (a, b) {
+    var ga = grupo(a), gb = grupo(b);
+    if (ga !== gb) return ga - gb;
+    return (a[1] || '').toString().localeCompare((b[1] || '').toString());
+  });
+
   var conError = 0;
   if (filas.length) {
-    sh.getRange(2, 1, filas.length, F_COLS.length).setValues(filas)
+    sh.getRange(3, 1, filas.length, F_COLS.length).setValues(filas)
       .setFontColor('#000000').setBackground('#ffffff').setVerticalAlignment('top').setWrap(true);
     var fondos = [];
     for (var i = 0; i < filas.length; i++) {
       var est = (filas[i][F_COLS.indexOf('Estado')] || '').toString();
       var sinNada = Number(filas[i][F_COLS.indexOf('Corridas sin traer nada')]) || 0;
+      var g = grupo(filas[i]);
       var color = '#ffffff';
-      if (est === 'ERROR') { color = '#F4CCCC'; conError++; }
+      if (g === 3) color = '#EFEFEF';                       // sin solución: gris, no alarma
+      else if (est === 'ERROR') { color = '#F4CCCC'; conError++; }
       else if (sinNada >= 3) { color = '#FCE4D6'; conError++; }
-      else if (est === 'Apagada') color = '#EFEFEF';
       else if (est === 'Se busca mañana') color = '#D9E1F2';
       else if (est === 'OK') color = '#D9EAD3';
       fondos.push(new Array(F_COLS.length).fill(color));
     }
-    sh.getRange(2, 1, filas.length, F_COLS.length).setBackgrounds(fondos);
+    sh.getRange(3, 1, filas.length, F_COLS.length).setBackgrounds(fondos);
 
     // Sólo sobre las filas de datos (antes abarcaba 60 filas y pisaba el texto
     // de ayuda del pie). Y permisivas: avisan, pero no bloquean la escritura.
     var vSi = SpreadsheetApp.newDataValidation().requireValueInList(['SI','NO'], true)
               .setAllowInvalid(true).setHelpText('Escribí SI o NO').build();
-    sh.getRange(2, 1, filas.length, 1).setDataValidation(vSi);
+    sh.getRange(3, 1, filas.length, 1).setDataValidation(vSi);
     var vP = SpreadsheetApp.newDataValidation().requireValueInList(PARSERS, true)
              .setAllowInvalid(true)
              .setHelpText('wpjson = sitios WordPress (probá este primero) · generico = cualquier otro').build();
-    sh.getRange(2, 4, filas.length, 1).setDataValidation(vP);
+    sh.getRange(3, 4, filas.length, 1).setDataValidation(vP);
   }
+
+  // Resumen arriba de todo: evita que un par de filas naranjas den la
+  // impresión de que está todo roto.
+  var ok = 0, conProblema = 0, sinSol = 0, traidas = 0;
+  filas.forEach(function (f) {
+    var g = grupo(f);
+    if (g === 3) sinSol++;
+    else if (g === 1) conProblema++;
+    else { ok++; traidas += Number(f[F_COLS.indexOf('Encontradas')]) || 0; }
+  });
+  var resumen = ok + ' fuentes funcionando (' + traidas + ' licitaciones encontradas)'
+              + (conProblema ? '  ·  ' + conProblema + ' con problemas (arriba)' : '  ·  sin problemas')
+              + (sinSol ? '  ·  ' + sinSol + ' que no se pueden leer (abajo, en gris)' : '');
+  sh.getRange(1, 1).setValue(resumen)
+    .setFontWeight('bold').setFontColor('#ffffff')
+    .setBackground(conProblema ? '#B45309' : '#1E7B4F');
+  sh.setFrozenRows(2);
 
   // Instrucciones al pie, SIN combinar celdas: los merges arrastraban
   // validaciones de otras columnas y rompían la escritura.
-  var f = filas.length + 3;
+  var f = filas.length + 4;
   sh.getRange(f, 1).setValue('CÓMO AGREGAR UN SITIO NUEVO')
     .setFontWeight('bold').setBackground('#1E7B4F').setFontColor('#ffffff');
   [ '1) Escribí una fila nueva abajo de todo: Activa = SI, un Nombre, la URL y el Parser.',
@@ -717,7 +756,6 @@ function actualizarFuentes_(ss) {
 
   var anchos = [60, 240, 330, 95, 260, 120, 95, 95, 110, 300, 120];
   for (var c = 0; c < anchos.length; c++) sh.setColumnWidth(c + 1, anchos[c]);
-  sh.setFrozenRows(1);
   return { total: filas.length, conError: conError };
 }
 
@@ -726,6 +764,24 @@ function actualizarFuentes_(ss) {
 function siNo_(v) {
   var t = (v == null ? '' : v).toString().toUpperCase().trim();
   return (t === 'NO' || t === 'N' || t === 'FALSE' || t === 'FALSO') ? 'NO' : 'SI';
+}
+
+// La columna Notas es del equipo. Antes se copiaba ahí el detalle técnico del
+// error y quedaba pegado para siempre: Min. Planeamiento decía "ReadTimeout"
+// aunque estuviera funcionando. Si la nota guardada es un mensaje de error y la
+// fuente hoy anda, se limpia.
+function esMensajeTecnico_(t) {
+  var txt = (t || '').toString();
+  return /ReadTimeout|ConnectionError|SSLError|JSONDecodeError/i.test(txt)
+      || /HTTPSConnectionPool|Max retries|Traceback|Expecting value/i.test(txt)
+      || /^HTTP \d{3}/i.test(txt.trim());
+}
+
+function notaLimpia_(notaGuardada, d) {
+  var n = (notaGuardada || '').toString().trim();
+  if (n && !esMensajeTecnico_(n)) return n;        // nota escrita por el equipo
+  var det = (d['Detalle'] || '').toString().trim();
+  return esMensajeTecnico_(det) ? '' : det;        // explicación, no error crudo
 }
 
 function norNombre_(n) {
@@ -790,7 +846,7 @@ function instalarTodo() {
            'Instalado', 12);
 }
 
-var VERSION = 'v12 · 15/10/2026';
+var VERSION = 'v13 · 16/10/2026';
 
 /**
  * Revisa si la planilla puede leer los datos y muestra el resultado.

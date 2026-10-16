@@ -1016,7 +1016,17 @@ def escribir_diagnostico(red, fuentes, estado_previo):
             estado = 'Sin resultados'
         else:
             estado = 'OK'
-        motivo = error or ('No trajo nada hace %d corrida(s)' % sin_nada if sin_nada >= 3 else '')
+        # Si no trae nada pero ya sabemos por qué (lo dice la nota de la fuente),
+        # se muestra esa explicación en vez de dejar la fila muda.
+        nota = (f.get('nota') or '').strip()
+        if error:
+            motivo = error
+        elif crudos == 0 and nota:
+            motivo = nota
+        elif sin_nada >= 3:
+            motivo = 'No trajo nada hace %d corrida(s)' % sin_nada
+        else:
+            motivo = ''
         filas.append({
             'Fuente': n, 'URL': f['url'], 'Parser': f['parser'], 'Estado': estado,
             'Respuesta': str(d.get('http', '')), 'Encontradas': crudos,
