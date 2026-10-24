@@ -52,30 +52,31 @@
   "id-47af836005bf94c8": "23/10/2026",
   "id-123ecaa449acae6f": "23/10/2026",
   "id-ef99d5cca6647c26": "23/10/2026",
-  "id-f5fcd4b57fce15ed": "23/10/2026"
+  "id-f5fcd4b57fce15ed": "23/10/2026",
+  "id-6bf9f7d3c45a4a6b": "24/10/2026"
  },
- "ultima_corrida": "2026-10-23T08:16:27",
+ "ultima_corrida": "2026-10-24T08:22:21",
  "ceros": {
   "Boletín Oficial de Entre Ríos": 0,
-  "Municipalidad de Paraná": 1,
+  "Municipalidad de Paraná": 0,
   "Min. Planeamiento (provincia)": 0,
   "IAPV — Viviendas": 0,
   "Vialidad Entre Ríos (DPV)": 0,
   "Túnel Subfluvial": 0,
   "ENERSA": 0,
   "Municipalidad de Crespo": 0,
-  "Municipalidad de Chajarí": 7,
+  "Municipalidad de Chajarí": 8,
   "Municipalidad de Federación": 0,
   "Municipalidad de Diamante": 0,
-  "Municipalidad de Oro Verde": 1,
-  "Municipalidad de Concordia": 7,
-  "Portal de Transparencia (provincia)": 7,
-  "Municipalidad de Victoria": 7,
-  "CAFESG (Salto Grande)": 11,
+  "Municipalidad de Oro Verde": 0,
+  "Municipalidad de Concordia": 8,
+  "Portal de Transparencia (provincia)": 8,
+  "Municipalidad de Victoria": 8,
+  "CAFESG (Salto Grande)": 12,
   "Municipalidad de San Benito": 0,
-  "Municipalidad de Aldea Brasilera": 11,
+  "Municipalidad de Aldea Brasilera": 12,
   "Poder Judicial de Entre Ríos": 0,
-  "IAPSER Seguros": 1,
-  "Boletín Oficial Municipalidad de Paraná": 0
+  "IAPSER Seguros": 0,
+  "Boletín Oficial Municipalidad de Paraná": 1
  }
 }
