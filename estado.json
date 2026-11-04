@@ -77,25 +77,13 @@
   "id-a840147adb567269": "03/11/2026",
   "id-2f70d6c0ad9eb40a": "03/11/2026",
   "id-3ebf4d40c2f4c0e7": "03/11/2026",
-  "id-76617234395b09b0": "04/11/2026",
-  "id-ba9f82d33b56881a": "04/11/2026",
-  "id-c8739599a46e2864": "04/11/2026",
-  "id-e8ac1f9d5ae47e5c": "05/11/2026",
-  "id-14cc244678b9ef94": "05/11/2026",
-  "id-1aecfc828ff15837": "05/11/2026",
-  "id-7e33a3b508d4b838": "05/11/2026",
-  "id-f108db3c2c5a312d": "05/11/2026",
-  "id-7ed09b03814c2ea7": "05/11/2026",
-  "id-fb0535367d183452": "06/11/2026",
-  "id-8e10f882358a7f38": "09/11/2026",
-  "id-7174bda84313de78": "09/11/2026",
-  "id-ec1a9db65ec81ac7": "09/11/2026",
-  "id-9c8fabbd0cd5f94e": "09/11/2026"
+  "id-5ee868e51e931784": "04/11/2026",
+  "id-a4c5a67df9b33b57": "04/11/2026"
  },
- "ultima_corrida": "2026-11-09T21:14:55",
+ "ultima_corrida": "2026-11-04T08:18:29",
  "ceros": {
   "Boletín Oficial de Entre Ríos": 0,
-  "Municipalidad de Paraná": 5,
+  "Municipalidad de Paraná": 0,
   "Min. Planeamiento (provincia)": 0,
   "IAPV — Viviendas": 0,
   "Vialidad Entre Ríos (DPV)": 0,
@@ -113,7 +101,7 @@
   "Municipalidad de San Benito": 0,
   "Municipalidad de Aldea Brasilera": 31,
   "Poder Judicial de Entre Ríos": 0,
-  "IAPSER Seguros": 1,
-  "Boletín Oficial Municipalidad de Paraná": 20
+  "IAPSER Seguros": 0,
+  "Boletín Oficial Municipalidad de Paraná": 0
  }
 }
