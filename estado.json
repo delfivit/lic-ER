@@ -116,9 +116,15 @@
   "id-b9b1591db6c5a6b2": "18/11/2026",
   "id-4e81ea0ab164e269": "18/11/2026",
   "id-33d131863e253bf1": "18/11/2026",
-  "id-d249520dd6b17e70": "18/11/2026"
+  "id-d249520dd6b17e70": "18/11/2026",
+  "id-1c979844f70f1c33": "18/11/2026",
+  "id-689ac47b9e657565": "18/11/2026",
+  "id-3ec0fc4ec2e4b49a": "18/11/2026",
+  "id-764850b0cb1eeb9d": "18/11/2026",
+  "id-c7a999d5d0c55f0f": "18/11/2026",
+  "id-3d906d0729b0c81d": "18/11/2026"
  },
- "ultima_corrida": "2026-11-18T11:44:04",
+ "ultima_corrida": "2026-11-18T12:34:20",
  "ceros": {
   "Boletín Oficial de Entre Ríos": 0,
   "Municipalidad de Paraná": 0,
@@ -128,18 +134,19 @@
   "Túnel Subfluvial": 0,
   "ENERSA": 0,
   "Municipalidad de Crespo": 0,
-  "Municipalidad de Chajarí": 40,
+  "Municipalidad de Chajarí": 42,
   "Municipalidad de Federación": 0,
   "Municipalidad de Diamante": 0,
   "Municipalidad de Oro Verde": 0,
-  "Municipalidad de Concordia": 40,
-  "Portal de Transparencia (provincia)": 40,
-  "Municipalidad de Victoria": 40,
+  "Municipalidad de Concordia": 42,
+  "Portal de Transparencia (provincia)": 42,
+  "Municipalidad de Victoria": 42,
   "CAFESG (Salto Grande)": 0,
   "Municipalidad de San Benito": 0,
-  "Municipalidad de Aldea Brasilera": 44,
+  "Municipalidad de Aldea Brasilera": 46,
   "Poder Judicial de Entre Ríos": 0,
   "IAPSER Seguros": 0,
-  "Boletín Oficial Municipalidad de Paraná": 0
+  "Boletín Oficial Municipalidad de Paraná": 0,
+  "UEP — Noticias": 0
  }
 }
