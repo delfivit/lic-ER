@@ -145,7 +145,7 @@ RUBROS = [
         'ampliacion','construccion','reparaciones generales','reparacion','cubierta de techo',
         'techo','banos','aulas','jardin de infantes','arquitectura','obra civil','mamposteria',
         'impermeabilizacion','instalacion electrica','cenefa','losa','portico','pintura',
-        'carpinteria','herreria']),
+        'carpinteria','herreria','restauracion','puesta en valor','patrimonio','patrimonial']),
 ]
 
 def es_ruido(texto):
@@ -380,7 +380,10 @@ def p_minplan(red, url, nombre):
     soup = BeautifulSoup(html, 'lxml')
     base = re.match(r'^(https?://.*/)[^/]*$', url).group(1)
     out, visto = [], set()
-    for a in soup.find_all('a', href=re.compile(r'^licitaciones/')):
+    # La web pasó de /minplan/licitaciones/xxx a /minplan/contrataciones/xxx
+    # (detectado 18/11/2026: 543 links nuevos, cero con el prefijo viejo).
+    # Se aceptan los dos por si conviven mientras migran contenido viejo.
+    for a in soup.find_all('a', href=re.compile(r'^(?:licitaciones|contrataciones)/')):
         href = a['href']
         if href in visto: continue
         txt = norm(a.get_text(' '))
@@ -405,6 +408,68 @@ def p_minplan(red, url, nombre):
         out.append(dict(fuente=nombre, organismo=ORG.get(code, f'Min. Planeamiento {code}'.strip()),
             tipo=tipo, numero=numero, objeto=objeto, apertura_txt=apertura,
             fecha=parse_fecha(apertura), link=link, pdf='', uid=link))
+    return out
+
+def p_uep_noticias(red, url, nombre):
+    """La Unidad Ejecutora Provincial (UEP) no tiene sección propia de
+    licitaciones: las publica mezcladas con noticias generales (obras
+    inauguradas, convenios, etc.) en un feed que además carga todo por
+    JavaScript — no hay HTML plano para leer con BeautifulSoup. Se pide
+    directo a la API que alimenta esa página (encontrada inspeccionando
+    las llamadas de red del sitio, 18/11/2026); 'url' sólo se usa para
+    loguear el error con el link que el diagnóstico le muestra a Delfina."""
+    base = 'https://portal.entrerios.gov.ar'
+    d = red.log.setdefault(nombre, {'http': '', 'bytes': 0, 'error': '', 'crudos': 0, 'relev': 0})
+    ses = requests.Session()
+    ses.headers.update(HEADERS)
+    try:
+        r = ses.post(base + '/api/public/sitios/noticias/rango',
+                     json={'sitio': 'infraestructura/unidadejecutoraprovincial',
+                           'desde': 0, 'cantNoticiasPorPagina': 500},
+                     timeout=(10, 30))
+        d['http'] = r.status_code
+        datos = r.json()
+    except Exception as e:
+        d['error'] = f'{type(e).__name__}: {e}'[:110]
+        return []
+    finally:
+        ses.close()
+    if not datos.get('success'):
+        d['error'] = f'La API no devolvió datos: {str(datos)[:80]}'
+        return []
+
+    out = []
+    corte = (r'(?=\s*[–—-]?\s*(?:ENTREGA L[ÍI]MITE|FECHA DE APERTURA|LUGAR DE APERTURA|'
+             r'PLAZO DE EJECUCI[OÓ]N|CONTACTO|FINANCIAMIENTO|ENLACE)\s*:|$)')
+    for n in datos.get('data') or []:
+        titulo = norm(n.get('titulo', ''))
+        if not re.search(r'licitaci', titulo, re.I):
+            continue   # el resto son noticias comunes, no llamados a licitación
+        # Hay noticias viejas (2023) sin "Fecha de apertura" en el cuerpo —
+        # son anuncios de llamados hace tiempo cerrados, no sirve mostrarlos
+        # como "revisar fecha" para siempre. fecha_publicacion viene en ISO
+        # (AAAA-MM-DD), no sirve pasarla por parse_fecha (espera DD/MM/AAAA).
+        mpub = re.match(r'(\d{4})-(\d{2})-(\d{2})', n.get('fecha_publicacion') or '')
+        if mpub:
+            try:
+                pub = date(int(mpub.group(1)), int(mpub.group(2)), int(mpub.group(3)))
+                if (HOY - pub).days > 120:
+                    continue
+            except ValueError:
+                pass
+        cuerpo = norm(BeautifulSoup(n.get('texto') or '', 'lxml').get_text(' '))
+        mo = re.search(r'OBJETO\s*:\s*(.{5,900}?)' + corte, cuerpo, re.I | re.S)
+        objeto = norm(mo.group(1)).strip(' .–—-') if mo else titulo
+        mf = re.search(r'FECHA DE APERTURA\s*:\s*(.{3,40}?)(?=\s*[–—-]?\s*HORA|$)', cuerpo, re.I)
+        apertura = limpiar_apertura(mf.group(1)) if mf else ''
+        mn = re.search(r'(\d{1,3}\s*/\s*\d{2,4})', titulo)
+        link = f'{base}/infraestructura/unidadejecutoraprovincial/noticias/{n.get("id", "")}'
+        out.append(dict(fuente=nombre, organismo='Unidad Ejecutora Provincial (UEP)',
+            tipo='Licitación Pública', numero=re.sub(r'\s+', '', mn.group(1)) if mn else '',
+            objeto=objeto, apertura_txt=apertura or 'Ver aviso',
+            fecha=parse_fecha(apertura) if apertura else None,
+            link=link, pdf='', uid=link))
+    d['crudos'] = len(out)
     return out
 
 def datos_de_imagen(url_img, sesion):
@@ -873,7 +938,8 @@ def p_boletinparana(red, url, nombre):
 
 PARSERS = {'parana': p_parana, 'boletin': p_boletin, 'cafesg': p_cafesg,
            'boletinparana': p_boletinparana, 'minplan': p_minplan, 'iapv': p_iapv,
-           'enersa': p_enersa, 'wpjson': p_wpjson, 'generico': p_generico}
+           'enersa': p_enersa, 'wpjson': p_wpjson, 'uep_noticias': p_uep_noticias,
+           'generico': p_generico}
 # ------------------------------------------------ buscar el pliego en el sitio
 # Los avisos del Boletín dicen "se podrá descargar en https://www.segui.gob.ar"
 # pero no el enlace al PDF. Entrando a ese sitio se lo encuentra por el número.
@@ -1186,10 +1252,33 @@ def main():
             except Exception:
                 pass
 
+    # 'Min. Planeamiento' comparte host con el Boletín Oficial (los dos son
+    # www.entrerios.gov.ar). Cuando el Boletín baja ~17 PDFs en paralelo
+    # satura esa conexión y Planeamiento cae por ReadTimeout aunque el sitio
+    # esté perfecto — confirmado a mano: fuera de la corrida responde en
+    # <1s. Por eso se la saca del pool y se la pide sola, antes de arrancar
+    # el resto en paralelo, para que no compitan por el mismo host.
+    fuentes_pool = []
+    for f in fuentes:
+        if f['parser'] != 'minplan':
+            fuentes_pool.append(f)
+            continue
+        t0 = time.time()
+        try:
+            got = trabajo(f)
+        except Exception as e:
+            got = []
+            red.log.setdefault(f['nombre'], {})['error'] = f'{type(e).__name__}: {e}'[:120]
+        d = red.log.setdefault(f['nombre'], {})
+        d['crudos'] = len(got)
+        items += got
+        print(f'  {f["nombre"][:38]:<40} {str(d.get("http","")):>7}  {len(got):>4} items  '
+              f'{time.time()-t0:5.1f}s  {d.get("error","")[:32]}')
+
     # 4 fuentes a la vez: con 6 el Boletín (que baja ~17 PDFs de 2 MB en
     # paralelo) saturaba la conexión y las demás caían por timeout.
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futuros = {f['nombre']: (pool.submit(trabajo, f), time.time(), f) for f in fuentes}
+        futuros = {f['nombre']: (pool.submit(trabajo, f), time.time(), f) for f in fuentes_pool}
         for nombre, (fut, t0, f) in futuros.items():
             try:
                 tope = LIMITE_LARGO if f['parser'] == 'boletin' else LIMITE

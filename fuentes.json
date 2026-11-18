@@ -24,6 +24,13 @@
   },
   {
    "activa": true,
+   "nombre": "UEP — Noticias",
+   "url": "https://portal.entrerios.gov.ar/infraestructura/unidadejecutoraprovincial/noticias",
+   "parser": "uep_noticias",
+   "nota": "La Unidad Ejecutora Provincial no tiene sección propia de licitaciones: las publica mezcladas con noticias generales en este canal, que además carga todo por JavaScript. El parser pide directo a la API del sitio (detectada 18/11/2026) y filtra los títulos que dicen 'Licitación'. Agregada porque Min. Planeamiento no las traía (no son lo mismo: Planeamiento cubre DGAyC/Vialidad/IAPV/etc., no este canal de la UEP)."
+  },
+  {
+   "activa": true,
    "nombre": "IAPV — Viviendas",
    "url": "https://www.iapv.gob.ar/seccion/articulos-grupo/20/pliegos-de-licitaciones",
    "parser": "iapv",
